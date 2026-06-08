@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SALUD GOYA - Sistema de Gestión de Turnos</title>
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Estilos -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Barra de Simulación del Desarrollador (Developer / Test Simulator Hub) -->
+    <div id="sim-bar" class="sim-bar">
+        <div class="sim-brand">
+            <i class="fa-solid fa-flask-vial"></i>
+            <span>MODO SIMULADOR</span>
+        </div>
+        <div class="sim-controls">
+            <div class="sim-control-group">
+                <label for="sim-role-select">Cambiar Rol:</label>
+                <select id="sim-role-select">
+                    <option value="patient">Paciente (Demo)</option>
+                    <option value="doctor">Médico (Demo)</option>
+                    <option value="admin">Administrador (Demo)</option>
+                </select>
+            </div>
+            <div class="sim-control-group" id="sim-user-group">
+                <label for="sim-user-select">Usuario Activo:</label>
+                <select id="sim-user-select">
+                    <!-- Se llena dinámicamente según el rol seleccionado -->
+                </select>
+            </div>
+            <button id="sim-reset-db" class="btn btn-warning btn-sm" title="Reestablecer base de datos a los valores por defecto">
+                <i class="fa-solid fa-rotate-left"></i> Reiniciar DB
+            </button>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la Aplicación -->
+    <div class="app-container">
+        
+        <!-- Sidebar de Navegación Lateral -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fa-solid fa-house-medical"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>SALUD GOYA</h1>
+                        <span>Portal Médico</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navegación Dinámica -->
+            <nav class="sidebar-nav">
+                <ul id="nav-list">
+                    <!-- Se llena dinámicamente por app.js basado en el rol actual -->
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile-summary" id="sidebar-user-profile">
+                    <!-- Detalle del usuario logueado actualmente -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Area de Contenido Principal -->
+        <main class="main-content">
+            <!-- Barra Superior (Header) -->
+            <header class="main-header">
+                <div class="header-search">
+                    <h2 id="view-title">Dashboard</h2>
+                </div>
+                <div class="header-actions">
+                    <div class="notification-trigger" id="notif-bell-btn">
+                        <i class="fa-regular fa-bell"></i>
+                        <span class="badge" id="notif-count">0</span>
+                    </div>
+                    <div class="header-user">
+                        <span id="header-user-name">Usuario Invitado</span>
+                        <div class="avatar" id="header-avatar">U</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Sección de Contenido Dinámico (SPA) -->
+            <section class="content-body" id="content-body">
+                <!-- Las pantallas individuales se renderizan aquí -->
+            </section>
+        </main>
+    </div>
+
+    <!-- CONTENEDOR DE MODALES -->
+    
+    <!-- Modal de Registro / Login -->
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal-box auth-box">
+            <div class="modal-header">
+                <h3 id="auth-modal-title">Iniciar Sesión</h3>
+                <button class="modal-close" id="auth-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" id="tab-login-btn">Ingresar</button>
+                    <button class="auth-tab" id="tab-register-btn">Registrarse</button>
+                </div>
+                
+                <!-- Formulario de Login -->
+                <form id="login-form" class="auth-form active">
+                    <div class="form-group">
+                        <label for="login-dni">DNI / Documento</label>
+                        <input type="text" id="login-dni" required placeholder="Ej: 35123456">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Ingresar al Portal</button>
+                </form>
+
+                <!-- Formulario de Registro -->
+                <form id="register-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="reg-name">Nombre Completo</label>
+                        <input type="text" id="reg-name" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-dni">DNI / Documento</label>
+                        <input type="text" id="reg-dni" required placeholder="Ej: 35123456">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-email">Correo Electrónico</label>
+                        <input type="email" id="reg-email" required placeholder="juan@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-phone">Teléfono / WhatsApp (con código de área)</label>
+                        <input type="tel" id="reg-phone" required placeholder="Ej: +543777881122">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block">Crear Cuenta</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Consulta Médica (Registrar diagnóstico) -->
+    <div id="consultation-modal" class="modal-overlay">
+        <div class="modal-box consultation-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-stethoscope"></i> Registrar Atención Médica</h3>
+                <button class="modal-close" id="consultation-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="patient-consult-info mb-4">
+                    <p><strong>Paciente:</strong> <span id="consult-patient-name">-</span></p>
+                    <p><strong>DNI:</strong> <span id="consult-patient-dni">-</span></p>
+                    <p><strong>Fecha y Hora:</strong> <span id="consult-app-datetime">-</span></p>
+                </div>
+                <form id="consultation-form">
+                    <input type="hidden" id="consult-app-id">
+                    <input type="hidden" id="consult-patient-id">
+                    
+                    <div class="form-group">
+                        <label for="consult-diagnostic">Diagnóstico Principal</label>
+                        <input type="text" id="consult-diagnostic" required placeholder="Ej: Gastroenteritis Aguda / Hipertensión Arterial">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="consult-observations">Observaciones / Sintomatología</label>
+                        <textarea id="consult-observations" rows="3" required placeholder="Detalles de la consulta, síntomas expuestos por el paciente..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="consult-indications">Indicaciones Médicas y Tratamiento</label>
+                        <textarea id="consult-indications" rows="4" required placeholder="Medicamentos, dosis, reposo, pautas de alarma..."></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="consult-recipe">Receta Digital (Simulada)</label>
+                            <select id="consult-recipe" class="form-control">
+                                <option value="">No requiere receta médica</option>
+                                <option value="Receta_Medicación_General.pdf">Receta de medicamentos recetados</option>
+                                <option value="Orden_Estudio_Laboratorio.pdf">Orden de análisis clínicos</option>
+                                <option value="Orden_Radiografía_Tórax.pdf">Orden de radiografía / ecografía</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="consult-attachments">Estudio Adjunto / Documento (Simulado)</label>
+                            <input type="file" id="consult-attachments" class="form-control-file" disabled placeholder="Simular subida de archivo">
+                            <small class="form-text text-muted">La subida se simulará localmente en la base de datos.</small>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="consultation-cancel-btn">Cancelar</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar y Finalizar Turno</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Detalle de Consulta / Historial Clínico -->
+    <div id="history-detail-modal" class="modal-overlay">
+        <div class="modal-box history-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-invoice-dollar"></i> Registro Clínico Detallado</h3>
+                <button class="modal-close" id="history-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" id="history-detail-content">
+                <!-- Se llena dinámicamente al abrir -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de Notificaciones (Simulador de Email/WhatsApp) -->
+    <div id="notification-sidebar" class="notification-sidebar">
+        <div class="notif-header">
+            <h3><i class="fa-solid fa-envelope-open-text"></i> Notificaciones del Sistema</h3>
+            <button class="notif-close" id="notif-close-btn">&times;</button>
+        </div>
+        <div class="notif-body" id="notif-list-container">
+            <!-- Se llena dinámicamente con logs de notificaciones de db.js -->
+        </div>
+    </div>
+
+    <!-- Contenedor para Mensajes Toast (Alertas Flotantes) -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts de la Aplicación -->
+    <script src="db.js"></script>
+    <script src="components/patient.js"></script>
+    <script src="components/doctor.js"></script>
+    <script src="components/admin.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
