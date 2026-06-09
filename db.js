@@ -16,6 +16,21 @@ function setTable(tableName, data) {
     localStorage.setItem(DB_PREFIX + tableName, JSON.stringify(data));
 }
 
+function timeToMinutes(timeStr) {
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return hours * 60 + minutes;
+}
+
+function minutesToTime(timeMinutes) {
+    const hours = Math.floor(timeMinutes / 60);
+    const minutes = timeMinutes % 60;
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+function rangesOverlap(startA, endA, startB, endB) {
+    return startA < endB && startB < endA;
+}
+
 // Datos semilla iniciales
 const SEED_DATA = {
     specialties: [
@@ -439,15 +454,19 @@ const db = {
         }
 
         const appointments = getTable("appointments") || [];
-        
-        // Verificar superposición (mismo médico, misma fecha y hora)
-        const overlaps = appointments.some(a => 
-            a.doctorId === appData.doctorId && 
-            a.date === appData.date && 
-            a.time === appData.time && 
-            a.status !== "Cancelado"
-        );
-        if (overlaps) throw new Error("El horario seleccionado ya se encuentra reservado.");
+        const duration = parseInt(appData.duration, 10) || 30;
+        const requestedStart = timeToMinutes(appData.time);
+        const requestedEnd = requestedStart + duration;
+
+        // Verificar superposición (mismo médico, misma fecha y rango de tiempo)
+        const overlaps = appointments.some(a => {
+            if (a.doctorId !== appData.doctorId || a.date !== appData.date || a.status === "Cancelado") return false;
+            const bookedStart = timeToMinutes(a.time);
+            const bookedDuration = parseInt(a.duration, 10) || 30;
+            const bookedEnd = bookedStart + bookedDuration;
+            return rangesOverlap(requestedStart, requestedEnd, bookedStart, bookedEnd);
+        });
+        if (overlaps) throw new Error("El horario seleccionado ya se encuentra reservado o se superpone con otro turno.");
 
         const config = getTable("config") || SEED_DATA.config;
 
@@ -460,8 +479,10 @@ const db = {
             specialty: appData.specialty,
             date: appData.date,
             time: appData.time,
+            duration: duration,
             status: "Solicitado",
-            paid: false,
+            paid: !!appData.paid,
+            paymentMethod: appData.paymentMethod || "",
             price: config.copayDefault
         };
 
@@ -611,6 +632,42 @@ const db = {
         return newLog;
     },
 
+    updateAppointmentSchedule: async function(appId, newDate, newTime) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const appointments = getTable("appointments") || [];
+        const idx = appointments.findIndex(a => a.id === appId);
+        if (idx === -1) throw new Error("Turno no encontrado.");
+
+        const appointment = appointments[idx];
+        const duration = parseInt(appointment.duration, 10) || 30;
+        const requestedStart = timeToMinutes(newTime);
+        const requestedEnd = requestedStart + duration;
+
+        const overlaps = appointments.some(a => {
+            if (a.id === appId || a.doctorId !== appointment.doctorId || a.date !== newDate || a.status === "Cancelado") return false;
+            const bookedStart = timeToMinutes(a.time);
+            const bookedDuration = parseInt(a.duration, 10) || 30;
+            const bookedEnd = bookedStart + bookedDuration;
+            return rangesOverlap(requestedStart, requestedEnd, bookedStart, bookedEnd);
+        });
+        if (overlaps) throw new Error("No se puede adelantar el turno porque el horario elegido se superpone con otro turno.");
+
+        appointment.date = newDate;
+        appointment.time = newTime;
+        setTable("appointments", appointments);
+
+        const patientObj = await this.getPatientById(appointment.patientId);
+        if (patientObj) {
+            await this.createNotification({
+                type: "Correo",
+                recipient: patientObj.email,
+                message: `Su turno con el ${appointment.doctorName} ha sido adelantado al ${appointment.date} a las ${appointment.time} hs.`
+            });
+        }
+
+        return appointment;
+    },
+
     // CONFIGURACIÓN GLOBAL
     getSystemConfig: async function() {
         await new Promise(resolve => setTimeout(resolve, 20));
@@ -624,7 +681,7 @@ const db = {
     },
 
     // OBTENER DISPONIBILIDAD DE UN MÉDICO
-    getDoctorAvailability: async function(doctorId, dateString) {
+    getDoctorAvailability: async function(doctorId, dateString, durationMinutes = 30) {
         await new Promise(resolve => setTimeout(resolve, 50));
         const doctor = await this.getDoctorById(doctorId);
         if (!doctor) throw new Error("Médico no encontrado.");
@@ -637,34 +694,30 @@ const db = {
             return []; // No atiende este día
         }
 
-        // Generar turnos posibles (cada 30 min)
         const slots = [];
         const [startHour, startMin] = doctor.workHours.start.split(":").map(Number);
         const [endHour, endMin] = doctor.workHours.end.split(":").map(Number);
 
-        let current = new Date(date);
-        current.setHours(startHour, startMin, 0, 0);
-
-        const end = new Date(date);
-        end.setHours(endHour, endMin, 0, 0);
+        const startOfDay = timeToMinutes(doctor.workHours.start);
+        const endOfDay = timeToMinutes(doctor.workHours.end);
 
         // Cargar turnos ya agendados para este médico en esta fecha
         const appointments = await this.getAppointments();
-        const bookedTimes = appointments
+        const bookedIntervals = appointments
             .filter(a => a.doctorId === doctorId && a.date === dateString && a.status !== "Cancelado")
-            .map(a => a.time);
-
-        while (current < end) {
-            const hrs = String(current.getHours()).padStart(2, "0");
-            const mins = String(current.getMinutes()).padStart(2, "0");
-            const timeStr = `${hrs}:${mins}`;
-
-            slots.push({
-                time: timeStr,
-                available: !bookedTimes.includes(timeStr)
+            .map(a => {
+                const start = timeToMinutes(a.time);
+                const duration = parseInt(a.duration, 10) || 30;
+                return { start, end: start + duration };
             });
 
-            current.setMinutes(current.getMinutes() + 30);
+        for (let current = startOfDay; current + durationMinutes <= endOfDay; current += 15) {
+            const slotEnd = current + durationMinutes;
+            const available = !bookedIntervals.some(interval => rangesOverlap(current, slotEnd, interval.start, interval.end));
+            slots.push({
+                time: minutesToTime(current),
+                available
+            });
         }
 
         return slots;

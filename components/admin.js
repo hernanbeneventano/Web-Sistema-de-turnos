@@ -67,6 +67,9 @@ window.addEventListener("DOMContentLoaded", () => {
                 <!-- Control Rápido de Caja y Copagos -->
                 <div class="card">
                     <div class="card-title">Copagos Pendientes de Cobro</div>
+                    <div style="margin-bottom:12px;">
+                        <canvas id="admin-pie-chart" style="width:100%; height:200px;"></canvas>
+                    </div>
                     <div class="table-responsive">
                         <table class="table-custom" id="table-pending-copays">
                             <thead>
@@ -123,6 +126,41 @@ window.addEventListener("DOMContentLoaded", () => {
                     }
                 });
             });
+        }
+
+        // Inicializar gráfico de torta (Pagos vs Pendientes)
+        try {
+            const paidCount = appointments.filter(a => a.paid).length;
+            const unpaidCount = appointments.filter(a => !a.paid).length;
+            const ctxEl = container.querySelector('#admin-pie-chart');
+            if (ctxEl) {
+                // destruir instancia previa si existe
+                if (window.adminPieChart && typeof window.adminPieChart.destroy === 'function') {
+                    window.adminPieChart.destroy();
+                }
+                const ctx = ctxEl.getContext('2d');
+                window.adminPieChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pagos', 'Pendientes'],
+                        datasets: [{
+                            data: [paidCount, unpaidCount],
+                            backgroundColor: ['#4caf50', '#ff9800'],
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            legend: { position: 'bottom' },
+                            tooltip: { enabled: true }
+                        },
+                        maintainAspectRatio: false,
+                        responsive: true
+                    }
+                });
+            }
+        } catch (err) {
+            console.warn('No se pudo inicializar el gráfico de administración:', err);
         }
     });
 
@@ -345,6 +383,9 @@ window.addEventListener("DOMContentLoaded", () => {
                 <!-- Listado de especialidades -->
                 <div class="card">
                     <div class="card-title">Especialidades Médicas Ofrecidas</div>
+                    <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+                        <input id="admin-spec-search" placeholder="Buscar especialidad..." style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border-color);">
+                    </div>
                     <div class="table-responsive">
                         <table class="table-custom" id="table-admin-specialties">
                             <thead>
@@ -387,6 +428,18 @@ window.addEventListener("DOMContentLoaded", () => {
             `;
             tbody.appendChild(tr);
         });
+
+        // Buscador rápido para especialidades
+        const specSearch = container.querySelector('#admin-spec-search');
+        if (specSearch) {
+            specSearch.addEventListener('input', (e) => {
+                const q = e.target.value.trim().toLowerCase();
+                tbody.querySelectorAll('tr').forEach(row => {
+                    const txt = row.textContent.toLowerCase();
+                    row.style.display = txt.includes(q) ? '' : 'none';
+                });
+            });
+        }
 
         // Registrar Evento Agregar
         container.querySelector("#form-admin-specialty").addEventListener("submit", async (e) => {
@@ -477,6 +530,17 @@ window.addEventListener("DOMContentLoaded", () => {
                         </tbody>
                     </table>
                 </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:12px;">
+                    <div>
+                        <label for="per-page-select">Mostrar por página:</label>
+                        <select id="per-page-select">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                        </select>
+                    </div>
+                    <div id="appointments-pagination" style="display:flex; gap:8px; align-items:center;"></div>
+                </div>
             </div>
         `;
 
@@ -484,11 +548,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const tbody = container.querySelector("#table-admin-appointments tbody");
 
+        let currentPage = 1;
         const renderFilteredAppointments = () => {
             tbody.innerHTML = "";
             const specVal = container.querySelector("#filter-app-specialty").value;
             const docVal = container.querySelector("#filter-app-doctor").value;
             const statusVal = container.querySelector("#filter-app-status").value;
+            const perPage = parseInt(container.querySelector('#per-page-select').value, 10) || 10;
 
             let filtered = [...appointments];
 
@@ -505,12 +571,19 @@ window.addEventListener("DOMContentLoaded", () => {
             // Ordenar por fecha y hora descendente (más recientes primero)
             filtered.sort((a, b) => new Date(b.date + "T" + b.time) - new Date(a.date + "T" + a.time));
 
-            if (filtered.length === 0) {
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIdx = (currentPage - 1) * perPage;
+            const endIdx = startIdx + perPage;
+            const pageItems = filtered.slice(startIdx, endIdx);
+
+            if (pageItems.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No se encontraron turnos con los filtros seleccionados.</td></tr>`;
                 return;
             }
-
-            filtered.forEach(appo => {
+            pageItems.forEach(appo => {
                 const tr = document.createElement("tr");
                 const formattedDate = new Date(appo.date + "T00:00:00").toLocaleDateString('es-AR', {
                     day: '2-digit', month: '2-digit', year: 'numeric'
@@ -537,7 +610,8 @@ window.addEventListener("DOMContentLoaded", () => {
                         <small class="text-secondary">${appo.specialty}</small>
                     </td>
                     <td>
-                        $${appo.price} / ${paymentBadge}
+                        $${appo.price} / ${paymentBadge}<br>
+                        <small class="text-secondary">${appo.paymentMethod ? appo.paymentMethod : '-'}</small>
                     </td>
                     <td>${statusBadge}</td>
                     <td style="display: flex; gap: 6px; flex-wrap: wrap;">
@@ -595,6 +669,47 @@ window.addEventListener("DOMContentLoaded", () => {
             });
         };
 
+        // Pagination controls render
+        const renderPaginationControls = () => {
+            const perPage = parseInt(container.querySelector('#per-page-select').value, 10) || 10;
+            const specVal = container.querySelector("#filter-app-specialty").value;
+            const docVal = container.querySelector("#filter-app-doctor").value;
+            const statusVal = container.querySelector("#filter-app-status").value;
+
+            let filtered = [...appointments];
+            if (specVal !== "all") filtered = filtered.filter(a => a.specialty === specVal);
+            if (docVal !== "all") filtered = filtered.filter(a => a.doctorId === docVal);
+            if (statusVal !== "all") filtered = filtered.filter(a => a.status === statusVal);
+
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
+
+            const pager = container.querySelector('#appointments-pagination');
+            pager.innerHTML = '';
+
+            const prev = document.createElement('button');
+            prev.className = 'btn btn-secondary btn-sm';
+            prev.textContent = 'Anterior';
+            prev.disabled = currentPage <= 1;
+            prev.addEventListener('click', () => { currentPage = Math.max(1, currentPage - 1); renderFilteredAppointments(); renderPaginationControls(); });
+            pager.appendChild(prev);
+
+            const info = document.createElement('span');
+            info.style.margin = '0 8px';
+            info.textContent = `Página ${currentPage} / ${totalPages}`;
+            pager.appendChild(info);
+
+            const next = document.createElement('button');
+            next.className = 'btn btn-secondary btn-sm';
+            next.textContent = 'Siguiente';
+            next.disabled = currentPage >= totalPages;
+            next.addEventListener('click', () => { currentPage = Math.min(totalPages, currentPage + 1); renderFilteredAppointments(); renderPaginationControls(); });
+            pager.appendChild(next);
+        };
+
+        // Hook per-page select
+        container.querySelector('#per-page-select').addEventListener('change', () => { currentPage = 1; renderFilteredAppointments(); renderPaginationControls(); });
+
         // Vincular filtros
         container.querySelector("#filter-app-specialty").addEventListener("change", renderFilteredAppointments);
         container.querySelector("#filter-app-doctor").addEventListener("change", renderFilteredAppointments);
@@ -602,6 +717,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
         // Carga inicial
         renderFilteredAppointments();
+        renderPaginationControls();
     });
 
     // 5. ALERTAS, SANCIONES Y RECORDATORIOS (WHATSAPP/CORREO)
@@ -829,16 +945,32 @@ async function renderSpecialtyRanks(appointments) {
 
     // Retornar HTML de barritas
     return specialties.map(spec => {
+        const items = appointments.filter(a => a.specialty === spec).sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time));
         const count = counts[spec];
         const pct = Math.round((count / maxVal) * 100);
+
+        const listHtml = items.slice(0, 5).map(it => `
+            <div style="display:flex; justify-content:space-between; gap:12px; font-size:12px; padding:6px 0; border-bottom:1px dashed rgba(0,0,0,0.04);">
+                <div style="min-width:120px;">${new Date(it.date + 'T00:00:00').toLocaleDateString('es-AR')} ${it.time}</div>
+                <div style="flex:1;">${it.doctorName} — ${it.patientName}</div>
+                <div style="min-width:120px; text-align:right;">${it.paid ? '$' + (it.price||0) + ' · ' + (it.paymentMethod||'') : 'Pendiente'}</div>
+            </div>
+        `).join('');
+
+        const moreNote = items.length > 5 ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:6px;">Mostrando 5 de ${items.length} turnos</div>` : '';
+
         return `
-            <div>
-                <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 4px;">
+            <div style="margin-bottom:12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 6px;">
                     <span>${spec}</span>
                     <span class="text-secondary">${count} Turnos</span>
                 </div>
-                <div style="background-color: var(--border-color); height: 8px; border-radius: var(--radius-full); overflow: hidden;">
+                <div style="background-color: var(--border-color); height: 8px; border-radius: var(--radius-full); overflow: hidden; margin-bottom:8px;">
                     <div style="background: linear-gradient(90deg, var(--primary-teal), #0284c7); height: 100%; width: ${pct}%; border-radius: var(--radius-full);"></div>
+                </div>
+                <div style="background:#fff; border:1px solid var(--border-color); padding:8px; border-radius:6px;">
+                    ${listHtml || '<div style="font-size:12px; color:var(--text-secondary);">No hay turnos registrados para esta especialidad.</div>'}
+                    ${moreNote}
                 </div>
             </div>
         `;

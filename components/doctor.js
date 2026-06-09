@@ -114,7 +114,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 tr.innerHTML = `
                     <td>
                         <strong>${formattedDate}</strong><br>
-                        <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs</small>
+                        <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs${appo.duration ? ` · ${appo.duration} min` : ''}</small>
                     </td>
                     <td><strong>${appo.patientName}</strong></td>
                     <td>
@@ -132,6 +132,9 @@ window.addEventListener("DOMContentLoaded", () => {
                                 <button class="btn btn-success btn-sm btn-attend-pat" data-id="${appo.id}" data-pat-id="${appo.patientId}" data-pat-name="${appo.patientName}" data-pat-dni="${patientObj ? patientObj.dni : '-'}" data-datetime="${formattedDate} a las ${appo.time} hs">
                                     <i class="fa-solid fa-stethoscope"></i> Atender
                                 </button>
+                                <button class="btn btn-info btn-sm btn-advance-pat" data-id="${appo.id}" data-date="${appo.date}" data-time="${appo.time}">
+                                    <i class="fa-solid fa-forward"></i> Adelantar
+                                </button>
                                 <button class="btn btn-warning btn-sm btn-absent-pat" data-id="${appo.id}">
                                     <i class="fa-solid fa-user-slash"></i> Ausente
                                 </button>
@@ -143,58 +146,114 @@ window.addEventListener("DOMContentLoaded", () => {
                 tbody.appendChild(tr);
             });
 
-            // Registrar eventos de botones: Atender
-            tbody.querySelectorAll(".btn-attend-pat").forEach(btn => {
-                btn.addEventListener("click", () => {
+            // Delegated click handler for action buttons in the agenda rows
+            tbody.addEventListener("click", async (e) => {
+                const btn = e.target.closest("button");
+                if (!btn) return;
+
+                // Atender
+                if (btn.classList.contains("btn-attend-pat")) {
                     const appId = btn.getAttribute("data-id");
                     const patId = btn.getAttribute("data-pat-id");
                     const patName = btn.getAttribute("data-pat-name");
                     const patDni = btn.getAttribute("data-pat-dni");
                     const datetime = btn.getAttribute("data-datetime");
 
-                    // Rellenar modal de consulta
                     document.getElementById("consult-app-id").value = appId;
                     document.getElementById("consult-patient-id").value = patId;
                     document.getElementById("consult-patient-name").textContent = patName;
                     document.getElementById("consult-patient-dni").textContent = patDni;
                     document.getElementById("consult-app-datetime").textContent = datetime;
 
-                    // Limpiar campos del formulario
                     document.getElementById("consult-diagnostic").value = "";
                     document.getElementById("consult-observations").value = "";
                     document.getElementById("consult-indications").value = "";
                     document.getElementById("consult-recipe").value = "";
 
                     app.openModal("consultation-modal");
-                });
-            });
+                    return;
+                }
 
-            // Registrar eventos de botones: Marcar Ausente
-            tbody.querySelectorAll(".btn-absent-pat").forEach(btn => {
-                btn.addEventListener("click", async () => {
+                // Adelantar
+                if (btn.classList.contains("btn-advance-pat")) {
                     const appId = btn.getAttribute("data-id");
-                    if (confirm("¿Está seguro de marcar al paciente como AUSENTE en esta consulta? Esto registrará una inasistencia.")) {
-                        try {
-                            const updatedApp = await window.db.updateAppointmentStatus(appId, "Ausente");
-                            
-                            // Verificar si el paciente fue suspendido
-                            const patient = await window.db.getPatientById(updatedApp.patientId);
-                            
-                            if (patient.status === "Suspendido") {
-                                app.showToast(`Inasistencia registrada. ¡El paciente ${patient.name} ha sido SUSPENDIDO automáticamente por 30 días!`, "danger");
-                            } else {
-                                const config = await window.db.getSystemConfig();
-                                app.showToast(`Ausencia registrada. Inasistencias de ${patient.name}: ${patient.absences}/${config.maxAbsences}`, "warning");
-                            }
-                            
-                            await app.updateNotificationBell();
-                            // Recargar vista
-                            app.navigateTo("agenda");
-                        } catch (err) {
-                            app.showToast(err.message, "error");
+                    const appDate = btn.getAttribute("data-date");
+                    const appointment = allAppointments.find(a => a.id === appId);
+                    if (!appointment) return;
+
+                    try {
+                        const duration = parseInt(appointment.duration, 10) || 30;
+                        const slots = await window.db.getDoctorAvailability(doctor.id, appDate, duration);
+                        const availableEarlier = slots
+                            .filter(slot => slot.available && slot.time < appointment.time)
+                            .map(slot => slot.time);
+
+                        if (availableEarlier.length === 0) {
+                            app.showToast("No hay espacios libres anteriores para adelantar este turno.", "warning");
+                            return;
                         }
+
+                        // Mostrar modal con horarios anteriores disponibles
+                        const modal = document.getElementById('advance-modal');
+                        const list = modal.querySelector('#advance-times-list');
+                        modal.querySelector('#advance-modal-info').textContent = `Turno actual: ${appointment.time} hs — seleccione nueva hora anterior disponible:`;
+                        list.innerHTML = availableEarlier.map(t => `
+                            <label style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer;">
+                                <input type="radio" name="advance-time" value="${t}" ${t === availableEarlier[0] ? 'checked' : ''}>
+                                <span style="margin-left:6px;">${t} hs</span>
+                            </label>
+                        `).join('');
+
+                        const confirmBtn = modal.querySelector('#advance-confirm-btn');
+                        confirmBtn.dataset.appId = appId;
+                        confirmBtn.dataset.appDate = appDate;
+
+                        const onConfirm = async () => {
+                            const selected = modal.querySelector('input[name="advance-time"]:checked');
+                            if (!selected) {
+                                app.showToast('Debe seleccionar un horario para adelantar.', 'warning');
+                                return;
+                            }
+                            const selectedTime = selected.value;
+                            try {
+                                await window.db.updateAppointmentSchedule(appId, appDate, selectedTime);
+                                app.showToast(`Turno adelantado a las ${selectedTime} hs correctamente.`, 'success');
+                                app.closeModal('advance-modal');
+                                app.navigateTo('agenda');
+                            } catch (err) {
+                                app.showToast(err.message, 'error');
+                            }
+                        };
+
+                        // Usar listener una sola vez
+                        confirmBtn.addEventListener('click', onConfirm, { once: true });
+                        app.openModal('advance-modal');
+                    } catch (err) {
+                        app.showToast(err.message, "error");
                     }
-                });
+                    return;
+                }
+
+                // Ausente
+                if (btn.classList.contains("btn-absent-pat")) {
+                    const appId = btn.getAttribute("data-id");
+                    if (!confirm("¿Está seguro de marcar al paciente como AUSENTE en esta consulta? Esto registrará una inasistencia.")) return;
+                    try {
+                        const updatedApp = await window.db.updateAppointmentStatus(appId, "Ausente");
+                        const patient = await window.db.getPatientById(updatedApp.patientId);
+                        if (patient.status === "Suspendido") {
+                            app.showToast(`Inasistencia registrada. ¡El paciente ${patient.name} ha sido SUSPENDIDO automáticamente por 30 días!`, "danger");
+                        } else {
+                            const config = await window.db.getSystemConfig();
+                            app.showToast(`Ausencia registrada. Inasistencias de ${patient.name}: ${patient.absences}/${config.maxAbsences}`, "warning");
+                        }
+                        await app.updateNotificationBell();
+                        app.navigateTo("agenda");
+                    } catch (err) {
+                        app.showToast(err.message, "error");
+                    }
+                    return;
+                }
             });
         };
 
@@ -328,7 +387,7 @@ window.addEventListener("DOMContentLoaded", () => {
                                 <input type="time" id="doc-end-hour" value="${freshDoc.workHours.end}" required>
                             </div>
                             <div class="mt-4" style="background: var(--primary-teal-light); border: 1px dashed var(--primary-teal); padding: 12px; border-radius: var(--radius-md); font-size: 12px; color: var(--primary-teal);">
-                                <i class="fa-solid fa-lightbulb"></i> Los turnos se generarán en bloques de 30 minutos de forma automática dentro de este rango horario para los días seleccionados.
+                                <i class="fa-solid fa-lightbulb"></i> Los turnos se generan según la duración seleccionada para cada consulta. Si un turno termina antes, el médico puede adelantar el siguiente disponible.
                             </div>
                         </div>
                     </div>

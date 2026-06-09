@@ -110,7 +110,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 tr.innerHTML = `
                     <td>
                         <strong>${formattedDate}</strong><br>
-                        <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs</small>
+                        <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs${appo.duration ? ` · ${appo.duration} min` : ''}</small>
                     </td>
                     <td>${appo.specialty}</td>
                     <td>${appo.doctorName}</td>
@@ -180,6 +180,9 @@ window.addEventListener("DOMContentLoaded", () => {
         let selectedDoctor = null;
         let selectedDate = "";
         let selectedTime = "";
+        let selectedDuration = 30;
+        let selectedPaid = false;
+        let selectedPaymentMethod = "Efectivo";
 
         const renderWizard = () => {
             container.innerHTML = `
@@ -243,7 +246,10 @@ window.addEventListener("DOMContentLoaded", () => {
             
             panel.innerHTML = `
                 <h3 class="mb-4">Paso 1: Seleccione la Especialidad Médica</h3>
-                <div class="wizard-grid">
+                <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center;">
+                    <input id="spec-search" placeholder="Buscar especialidad..." style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--border-color);">
+                </div>
+                <div class="wizard-grid" id="spec-grid">
                     ${specialties.map(spec => {
                         const isSelected = spec === selectedSpecialty;
                         const cardIcon = getSpecialtyIcon(spec);
@@ -257,7 +263,20 @@ window.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
 
-            // Eventos para tarjetas
+            // Eventos para tarjetas y búsqueda
+            const searchInput = panel.querySelector("#spec-search");
+            const specGrid = panel.querySelectorAll(".spec-card");
+
+            const filterSpecs = (q) => {
+                const val = q.trim().toLowerCase();
+                specGrid.forEach(card => {
+                    const txt = card.textContent.toLowerCase();
+                    card.style.display = txt.includes(val) ? "flex" : "none";
+                });
+            };
+
+            searchInput.addEventListener("input", (e) => filterSpecs(e.target.value));
+
             panel.querySelectorAll(".spec-card").forEach(card => {
                 card.addEventListener("click", () => {
                     panel.querySelectorAll(".spec-card").forEach(c => c.classList.remove("selected"));
@@ -354,6 +373,16 @@ window.addEventListener("DOMContentLoaded", () => {
                             <label for="booking-date">Fecha de Consulta</label>
                             <input type="date" id="booking-date" min="${today}" value="${selectedDate}">
                         </div>
+                        <div class="form-group mt-3">
+                            <label for="booking-duration">Duración estimada de la consulta</label>
+                            <select id="booking-duration" class="form-control">
+                                <option value="15">15 minutos</option>
+                                <option value="20">20 minutos</option>
+                                <option value="30" selected>30 minutos</option>
+                                <option value="45">45 minutos</option>
+                                <option value="60">60 minutos</option>
+                            </select>
+                        </div>
                         <div class="doctor-availability-info mt-4" style="background: var(--bg-light); padding: 16px; border-radius: var(--radius-md);">
                             <h5>Horario de Atención del Profesional:</h5>
                             <p class="text-secondary mt-2"><i class="fa-solid fa-circle-info"></i> ${selectedDoctor.name} atiende de ${getScheduleSummary(selectedDoctor)}.</p>
@@ -369,12 +398,14 @@ window.addEventListener("DOMContentLoaded", () => {
             `;
 
             const dateInput = panel.querySelector("#booking-date");
+            const durationSelect = panel.querySelector("#booking-duration");
+            durationSelect.value = String(selectedDuration);
             const slotsContainer = panel.querySelector("#slots-container");
 
             const loadSlots = async (dateVal) => {
                 slotsContainer.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin text-muted"></i> Buscando disponibilidad...`;
                 try {
-                    const slots = await window.db.getDoctorAvailability(selectedDoctor.id, dateVal);
+                    const slots = await window.db.getDoctorAvailability(selectedDoctor.id, dateVal, selectedDuration);
                     
                     if (slots.length === 0) {
                         slotsContainer.innerHTML = `
@@ -417,6 +448,15 @@ window.addEventListener("DOMContentLoaded", () => {
                 nextBtn.disabled = true;
                 await loadSlots(selectedDate);
             });
+
+            durationSelect.addEventListener("change", async (e) => {
+                selectedDuration = parseInt(e.target.value, 10);
+                selectedTime = "";
+                nextBtn.disabled = true;
+                if (selectedDate) {
+                    await loadSlots(selectedDate);
+                }
+            });
         };
 
         // PASO 4: CONFIRMACIÓN Y RESERVA
@@ -454,6 +494,7 @@ window.addEventListener("DOMContentLoaded", () => {
                             <div style="display: flex; flex-direction: column; gap: 12px; font-size: 15px;">
                                 <p><strong><i class="fa-regular fa-calendar-days text-muted mr-2"></i> Fecha:</strong> <span style="text-transform: capitalize;">${formattedDate}</span></p>
                                 <p><strong><i class="fa-regular fa-clock text-muted mr-2"></i> Horario:</strong> ${selectedTime} hs</p>
+                                <p><strong><i class="fa-solid fa-hourglass-half text-muted mr-2"></i> Duración estimada:</strong> ${selectedDuration} minutos</p>
                                 <p><strong><i class="fa-solid fa-hospital-user text-muted mr-2"></i> Paciente:</strong> ${patient.name} (DNI ${patient.dni})</p>
                             </div>
                         </div>
@@ -469,6 +510,20 @@ window.addEventListener("DOMContentLoaded", () => {
                                 Copago correspondiente a la cobertura de atención primaria de Salud Goya. Podrá ser abonado en administración al momento de asistir.
                             </p>
                         </div>
+                        <div class="mt-3" style="background: #fff; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-md);">
+                            <label style="font-weight:600;">Pago del turno</label>
+                            <div style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+                                <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="booking-paid-checkbox"> Pagar ahora</label>
+                            </div>
+                            <div style="margin-top:8px;">
+                                <label for="booking-payment-method">Método de Pago</label>
+                                <select id="booking-payment-method" class="form-control">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Tarjeta">Tarjeta</option>
+                                    <option value="Transferencia">Transferencia</option>
+                                </select>
+                            </div>
+                        </div>
                         <div class="mt-4" style="background: var(--warning-light); border: 1px dashed var(--warning); padding: 12px; border-radius: var(--radius-md); font-size: 12px; color: hsl(38, 92%, 30%);">
                             <i class="fa-solid fa-circle-exclamation"></i> <strong>Recuerda:</strong> Si no asistes al turno y no cancelas con anticipación, acumularás una inasistencia. 3 inasistencias resultan en la suspensión de tu cuenta.
                         </div>
@@ -482,13 +537,22 @@ window.addEventListener("DOMContentLoaded", () => {
                 nextBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Procesando...`;
 
                 try {
+                    // Leer opciones de pago seleccionadas en el resumen
+                    const paidCheckbox = document.getElementById('booking-paid-checkbox');
+                    const paymentMethodSelect = document.getElementById('booking-payment-method');
+                    const paid = paidCheckbox ? paidCheckbox.checked : false;
+                    const paymentMethod = paymentMethodSelect ? paymentMethodSelect.value : '';
+
                     await window.db.createAppointment({
                         patientId: patient.id,
                         doctorId: selectedDoctor.id,
                         doctorName: selectedDoctor.name,
                         specialty: selectedSpecialty,
                         date: selectedDate,
-                        time: selectedTime
+                        time: selectedTime,
+                        duration: selectedDuration,
+                        paid,
+                        paymentMethod
                     });
 
                     app.showToast("¡Turno reservado exitosamente! Recibirás un correo electrónico de confirmación.", "success");

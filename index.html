@@ -204,6 +204,24 @@
         </div>
     </div>
 
+    <!-- Modal para Adelantar Turno (Seleccionar nuevo horario anterior disponible) -->
+    <div id="advance-modal" class="modal-overlay">
+        <div class="modal-box consultation-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-forward"></i> Adelantar Turno</h3>
+                <button class="modal-close" data-close="advance-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="advance-modal-info" style="font-size:13px; color:var(--text-secondary);">Seleccione la nueva hora disponible para adelantar el turno.</p>
+                <div id="advance-times-list" style="display:flex; flex-direction:column; gap:8px; margin-top:8px; max-height:260px; overflow:auto;"></div>
+            </div>
+            <div class="modal-actions" style="margin-top:16px; border-top:1px solid var(--border-color); padding-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+                <button class="btn btn-secondary" data-close="advance-modal">Cancelar</button>
+                <button id="advance-confirm-btn" class="btn btn-primary">Adelantar Turno</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal para Detalle de Consulta / Historial Clínico -->
     <div id="history-detail-modal" class="modal-overlay">
         <div class="modal-box history-box">
@@ -235,6 +253,8 @@
     <script src="db.js"></script>
     <script src="components/patient.js"></script>
     <script src="components/doctor.js"></script>
+    <!-- Chart.js: gráfico de torta en panel de administración -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="components/admin.js"></script>
     <script src="app.js"></script>
 </body>
