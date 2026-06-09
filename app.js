@@ -61,6 +61,14 @@ const app = {
             this.closeModal("auth-modal");
         });
 
+        // Botones con atributo data-close (cerrar modales genéricos)
+        document.querySelectorAll('[data-close]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const target = e.currentTarget.getAttribute('data-close');
+                if (target) this.closeModal(target);
+            });
+        });
+
         // Tabs de Auth
         document.getElementById("tab-login-btn").addEventListener("click", () => this.switchAuthTab("login"));
         document.getElementById("tab-register-btn").addEventListener("click", () => this.switchAuthTab("register"));
