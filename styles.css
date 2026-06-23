@@ -40,6 +40,11 @@
     --transition-fast: 0.15s ease;
     --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     
+    --sim-bar-height: 0; /* por defecto 0; se activa solo si existe .sim-bar */
+}
+
+/* Si la barra de simulador está presente, ajustar la variable para layout */
+.sim-bar {
     --sim-bar-height: 48px;
 }
 
@@ -799,6 +804,45 @@ input:focus, select:focus, textarea:focus {
     display: block;
 }
 
+/* Estilos para el banner de sesión detectada (ajusta botones y texto) */
+#detected-session-banner {
+    width: 100%;
+    box-sizing: border-box;
+}
+#detected-session-banner > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+#detected-session-banner > div > div:first-child {
+    flex: 1 1 220px; /* permitir que el texto se reduzca y romper fila */
+    min-width: 160px;
+}
+#detected-session-banner > div > div:last-child {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+#detected-session-banner label {
+    /* permitir que el texto se envuelva y limitar ancho para no empujar botones */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 1 160px;
+    max-width: 220px;
+    word-break: break-word;
+}
+#detected-session-banner button {
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
+
 /* ==========================================
    DASHBOARD / REPORTES GENERALES (ADMIN)
    ========================================== */
@@ -1315,5 +1359,229 @@ input:focus, select:focus, textarea:focus {
     }
     .admin-grid.two-cols-dashboard {
         grid-template-columns: 1fr 1.2fr;
+    }
+}
+
+/* ==========================================
+   PANTALLA DE AUTENTICACIÓN PREMIUM (FIREBASE)
+   ========================================== */
+.auth-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, hsl(224, 64%, 10%) 0%, hsl(175, 84%, 12%) 100%);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.auth-page.active {
+    display: flex;
+}
+
+.auth-card {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 1000px;
+    min-height: 600px;
+    display: flex;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    animation: fadeIn var(--transition-normal);
+}
+
+/* Panel Visual Izquierdo */
+.auth-visual-panel {
+    flex: 1;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, hsl(175, 84%, 25%) 100%);
+    color: white;
+    padding: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+}
+
+.auth-visual-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(13, 148, 136, 0.15) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.auth-logo-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.auth-logo-icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-teal);
+    font-size: 22px;
+}
+
+.auth-logo-brand span {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.auth-visual-info h2 {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 16px;
+}
+
+.auth-visual-info p {
+    font-size: 15px;
+    color: hsl(224, 20%, 80%);
+    line-height: 1.6;
+}
+
+.auth-features {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.auth-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: hsl(224, 20%, 85%);
+}
+
+.auth-feature i {
+    font-size: 18px;
+    color: var(--primary-teal);
+}
+
+/* Panel de Formulario Derecho */
+.auth-form-panel {
+    width: 500px;
+    padding: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.auth-header {
+    margin-bottom: 24px;
+}
+
+.auth-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.auth-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.auth-tab-buttons {
+    display: flex;
+    background-color: var(--bg-light);
+    border-radius: var(--radius-md);
+    padding: 6px;
+    margin-bottom: 24px;
+}
+
+.auth-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+.auth-tab-btn.active {
+    background-color: white;
+    color: var(--primary-teal);
+    box-shadow: var(--shadow-sm);
+}
+
+.auth-form-content {
+    display: none;
+    animation: fadeIn var(--transition-fast);
+}
+
+.auth-form-content.active {
+    display: block;
+}
+
+.auth-form-panel .form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-lg {
+    padding: 12px 24px;
+    font-size: 15px;
+}
+
+.simulator-bypass-link {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.simulator-bypass-link a {
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.simulator-bypass-link a:hover {
+    color: var(--primary-teal);
+    text-decoration: underline;
+}
+
+/* Responsividad de Auth Page */
+@media (max-width: 900px) {
+    .auth-card {
+        flex-direction: column;
+        max-width: 500px;
+    }
+    
+    .auth-visual-panel {
+        display: none;
+    }
+    
+    .auth-form-panel {
+        width: 100%;
+        padding: 32px;
     }
 }

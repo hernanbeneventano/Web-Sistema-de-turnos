@@ -14,30 +14,91 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Barra de Simulación del Desarrollador (Developer / Test Simulator Hub) -->
-    <div id="sim-bar" class="sim-bar">
-        <div class="sim-brand">
-            <i class="fa-solid fa-flask-vial"></i>
-            <span>MODO SIMULADOR</span>
-        </div>
-        <div class="sim-controls">
-            <div class="sim-control-group">
-                <label for="sim-role-select">Cambiar Rol:</label>
-                <select id="sim-role-select">
-                    <option value="patient">Paciente (Demo)</option>
-                    <option value="doctor">Médico (Demo)</option>
-                    <option value="admin">Administrador (Demo)</option>
-                </select>
+    <!-- (Removed) Developer simulator UI - disabled for security in production -->
+
+
+    <!-- Pantalla de Login y Registro Profesional (Firebase) -->
+    <div id="auth-page" class="auth-page active">
+        <div class="auth-card">
+            <!-- Sección izquierda: Panel de bienvenida visual -->
+            <div class="auth-visual-panel">
+                <div class="auth-logo-brand">
+                    <div class="auth-logo-icon">
+                        <i class="fa-solid fa-house-medical"></i>
+                    </div>
+                    <span>SALUD GOYA</span>
+                </div>
+                <div class="auth-visual-info">
+                    <h2>Tu salud en un solo lugar</h2>
+                    <p>Gestioná turnos médicos, consultá tu historial clínico digital y comunicate con profesionales de forma ágil y segura.</p>
+                </div>
+                <div class="auth-features">
+                    <div class="auth-feature">
+                        <i class="fa-regular fa-calendar-check"></i>
+                        <span>Reserva de turnos 24/7</span>
+                    </div>
+                    <div class="auth-feature">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Acceso seguro y encriptado</span>
+                    </div>
+                </div>
             </div>
-            <div class="sim-control-group" id="sim-user-group">
-                <label for="sim-user-select">Usuario Activo:</label>
-                <select id="sim-user-select">
-                    <!-- Se llena dinámicamente según el rol seleccionado -->
-                </select>
+
+            <!-- Sección derecha: Formularios -->
+            <div class="auth-form-panel">
+                <div class="auth-header">
+                    <h2 id="auth-page-title">Iniciar Sesión</h2>
+                    <p id="auth-page-subtitle">Ingresá tus credenciales para acceder al portal</p>
+                </div>
+
+                <div class="auth-tab-buttons">
+                    <button class="auth-tab-btn active" id="page-tab-login">Ingresar</button>
+                    <button class="auth-tab-btn" id="page-tab-register">Registrarse</button>
+                </div>
+
+                <!-- Formulario de Login -->
+                <form id="page-login-form" class="auth-form-content active">
+                    <div class="form-group">
+                        <label for="page-login-email"><i class="fa-regular fa-envelope"></i> Correo Electrónico</label>
+                        <input type="email" id="page-login-email" required placeholder="ejemplo@correo.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="page-login-password"><i class="fa-solid fa-lock"></i> Contraseña</label>
+                        <input type="password" id="page-login-password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block btn-lg"><i class="fa-solid fa-right-to-bracket"></i> Entrar al Portal</button>
+                    
+                    
+                </form>
+
+                <!-- Formulario de Registro -->
+                <form id="page-register-form" class="auth-form-content">
+                    <div class="form-group">
+                        <label for="page-reg-name"><i class="fa-regular fa-user"></i> Nombre Completo</label>
+                        <input type="text" id="page-reg-name" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label for="page-reg-dni"><i class="fa-regular fa-id-card"></i> DNI / Documento</label>
+                        <input type="text" id="page-reg-dni" required placeholder="Ej: 35123456">
+                    </div>
+                    <div class="form-group">
+                        <label for="page-reg-email"><i class="fa-regular fa-envelope"></i> Correo Electrónico</label>
+                        <input type="email" id="page-reg-email" required placeholder="juan@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="page-reg-phone"><i class="fa-solid fa-mobile-screen-button"></i> Teléfono / WhatsApp</label>
+                        <input type="tel" id="page-reg-phone" required placeholder="Ej: +543777881122">
+                    </div>
+                    <div class="form-group">
+                        <label for="page-reg-password"><i class="fa-solid fa-lock"></i> Contraseña</label>
+                        <input type="password" id="page-reg-password" required placeholder="Mínimo 6 caracteres" minlength="6">
+                    </div>
+                    <!-- Tipo de cuenta fijo a 'Paciente' en el registro público -->
+                    <button type="submit" class="btn btn-success btn-block btn-lg"><i class="fa-solid fa-user-plus"></i> Registrarse</button>
+                    
+                    
+                </form>
             </div>
-            <button id="sim-reset-db" class="btn btn-warning btn-sm" title="Reestablecer base de datos a los valores por defecto">
-                <i class="fa-solid fa-rotate-left"></i> Reiniciar DB
-            </button>
         </div>
     </div>
 
@@ -248,6 +309,12 @@
 
     <!-- Contenedor para Mensajes Toast (Alertas Flotantes) -->
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts de Firebase SDK (Compat v9) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
 
     <!-- Scripts de la Aplicación -->
     <script src="db.js"></script>

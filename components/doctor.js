@@ -349,7 +349,9 @@ window.addEventListener("DOMContentLoaded", () => {
         if (!doctor) return renderNoDoctorSession(container);
 
         // Obtener datos frescos
-        const freshDoc = await window.db.getDoctorById(doctor.id);
+        const freshDocRaw = await window.db.getDoctorById(doctor.id) || {};
+        // Asegurar valores por defecto para evitar errores si faltan campos
+        const freshDoc = Object.assign({ workDays: [], workHours: { start: '08:00', end: '12:00' } }, freshDocRaw);
 
         let html = `
             <div class="card animate__animated animate__fadeIn">
@@ -365,7 +367,7 @@ window.addEventListener("DOMContentLoaded", () => {
                             <div style="display: flex; flex-direction: column; gap: 10px;">
                                 ${[1, 2, 3, 4, 5, 6].map(dNum => {
                                     const dayNames = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-                                    const isChecked = freshDoc.workDays.includes(dNum);
+                                    const isChecked = Array.isArray(freshDoc.workDays) && freshDoc.workDays.includes(dNum);
                                     return `
                                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
                                             <input type="checkbox" name="workday" value="${dNum}" ${isChecked ? 'checked' : ''} style="width: auto;">

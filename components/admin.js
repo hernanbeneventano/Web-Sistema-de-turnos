@@ -342,16 +342,52 @@ window.addEventListener("DOMContentLoaded", () => {
             }
 
             try {
-                await window.db.saveDoctor({
-                    id: id || undefined,
-                    name, specialty, matricula, email, phone,
-                    workDays,
-                    workHours: { start, end }
-                });
+                if (window.firebaseEnabled && window.firestore && !id) {
+                    // Crear invitación en Firestore para que el médico complete su registro
+                    const token = Math.random().toString(36).substring(2, 10);
+                    const invite = {
+                        token,
+                        email,
+                        name,
+                        specialty,
+                        matricula,
+                        phone,
+                        workDays,
+                        workHours: { start, end },
+                        role: 'doctor',
+                        used: false,
+                        createdBy: app.currentUser ? app.currentUser.id : null,
+                        createdAt: window.firebaseEnabled && window.firestore ? window.firestore.FieldValue ? window.firestore.FieldValue.serverTimestamp() : null : null
+                    };
 
-                app.showToast(id ? "Médico modificado exitosamente." : "Médico registrado exitosamente.", "success");
-                resetForm();
-                app.navigateTo("medicos");
+                    // Guardar invitación con ID = token
+                    await window.firestore.collection('invitations').doc(token).set(invite);
+
+                    const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${token}`;
+                    try {
+                        await navigator.clipboard.writeText(inviteLink);
+                        app.showToast('Invitación creada. Enlace copiado al portapapeles.', 'success');
+                    } catch (err) {
+                        app.showToast('Invitación creada. Copie manualmente el enlace mostrado.', 'info');
+                        // Mostrar enlace en prompt como fallback
+                        window.prompt('Enlace de invitación (copiar):', inviteLink);
+                    }
+
+                    resetForm();
+                    app.navigateTo('medicos');
+                } else {
+                    // Editar o modo local: guarda directamente el registro del médico
+                    await window.db.saveDoctor({
+                        id: id || undefined,
+                        name, specialty, matricula, email, phone,
+                        workDays,
+                        workHours: { start, end }
+                    });
+
+                    app.showToast(id ? 'Médico modificado exitosamente.' : 'Médico registrado exitosamente.', 'success');
+                    resetForm();
+                    app.navigateTo('medicos');
+                }
             } catch (err) {
                 app.showToast(err.message, "error");
             }
