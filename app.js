@@ -301,8 +301,8 @@ const app = {
     switchPageAuthTab: function(tab) {
         const loginBtn = document.getElementById("page-tab-login");
         const regBtn = document.getElementById("page-tab-register");
-        const loginForm = document.getElementById("page-login-panel");
-        const regForm = document.getElementById("page-register-panel");
+        const loginForm = document.getElementById("page-login-form");
+        const regForm = document.getElementById("page-register-form");
         const title = document.getElementById("auth-page-title");
 
         if (tab === "login") {
