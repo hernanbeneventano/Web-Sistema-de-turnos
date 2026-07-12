@@ -47,6 +47,13 @@ const app = {
 
         // 3. Cargar notificaciones iniciales en la campana
         await this.updateNotificationBell();
+
+        // 4. Verificar si venimos desde un enlace de invitación
+        const urlParams = new URLSearchParams(window.location.search);
+        const inviteToken = urlParams.get('invite');
+        if (inviteToken) {
+            await this.handleInviteFlow(inviteToken);
+        }
     },
 
     bindEvents: function() {
@@ -96,8 +103,11 @@ const app = {
         // Forms de Auth (Pantalla principal)
         const pageLoginForm = document.getElementById("page-login-form");
         const pageRegisterForm = document.getElementById("page-register-form");
+        const pageInviteForm = document.getElementById("page-invite-form");
+
         if (pageLoginForm) pageLoginForm.addEventListener("submit", (e) => this.handlePageLogin(e));
         if (pageRegisterForm) pageRegisterForm.addEventListener("submit", (e) => this.handlePageRegister(e));
+        if (pageInviteForm) pageInviteForm.addEventListener("submit", (e) => this.handlePageInvite(e));
     },
 
     // ==========================================
@@ -285,20 +295,67 @@ const app = {
                 name, dni, email, phone, password
             });
 
-            this.showToast("Cuenta creada. Iniciando sesión...", "success");
-            // Auto-login
-            const user = await window.apiClient.login(email, password);
-            this.currentUser = user;
-            this.currentRole = user.role;
-            this.activeView = 'dashboard';
-
-            document.getElementById("auth-page").classList.remove("active");
-            this.updateProfileUI();
-            this.renderSidebarNav();
-            await this.navigateTo(this.activeView);
+            this.showToast("Cuenta creada exitosamente. Ya puede iniciar sesión.", "success");
+            this.switchPageAuthTab("login");
         } catch (err) {
             console.error("Register error:", err);
             this.showToast(err.message || "Error al registrarse", "error");
+        }
+    },
+
+    handleInviteFlow: async function(token) {
+        try {
+            this.showToast("Validando invitación...", "info");
+            const invite = await window.db.getInvitationByToken(token);
+
+            // Si es válida, mostrar form de finalización
+            document.getElementById("auth-page").classList.add("active");
+
+            // Ocultar tabs y otros forms
+            document.querySelector(".auth-tab-buttons").style.display = "none";
+            document.getElementById("page-login-form").classList.remove("active");
+            document.getElementById("page-register-form").classList.remove("active");
+
+            // Mostrar form de invitación
+            const inviteForm = document.getElementById("page-invite-form");
+            inviteForm.classList.add("active");
+            document.getElementById("auth-page-title").textContent = "Completar Registro";
+            document.getElementById("auth-page-subtitle").textContent = "Staff Médico Salud Goya";
+
+            document.getElementById("page-invite-token").value = token;
+            document.getElementById("invite-welcome-title").textContent = `¡Hola, ${invite.name}!`;
+            document.getElementById("invite-welcome-msg").textContent = `Has sido invitado/a como especialista en ${invite.specialty}. Define tu contraseña para activar tu cuenta.`;
+
+        } catch (err) {
+            this.showToast("Enlace de invitación inválido o expirado", "error");
+            console.error(err);
+        }
+    },
+
+    handlePageInvite: async function(e) {
+        e.preventDefault();
+        const token = document.getElementById("page-invite-token").value;
+        const password = document.getElementById("page-invite-password").value;
+        const confirm = document.getElementById("page-invite-confirm").value;
+
+        if (password !== confirm) {
+            this.showToast("Las contraseñas no coinciden", "warning");
+            return;
+        }
+
+        try {
+            this.showToast("Activando cuenta...", "info");
+            await window.apiClient.post("/auth/register/doctor", {
+                inviteToken: token,
+                password
+            });
+
+            this.showToast("¡Cuenta activada! Ya puede ingresar con sus credenciales.", "success");
+            setTimeout(() => {
+                window.location.href = window.location.pathname; // Limpiar URL y volver al login
+            }, 2000);
+        } catch (err) {
+            this.showToast(err.message || "Error al activar cuenta", "error");
         }
     },
 

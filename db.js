@@ -142,6 +142,23 @@ const db = {
     // ENDPOINT DE ESTADÍSTICAS PARA ADMIN
     getAdminStats: async function() {
         return await window.apiClient.get("/admin/stats");
+    },
+
+    // INVITACIONES (Para Médicos)
+    getInvitations: async function() {
+        return await window.apiClient.get("/invitations");
+    },
+
+    createInvitation: async function(inviteData) {
+        return await window.apiClient.post("/invitations", inviteData);
+    },
+
+    getInvitationByToken: async function(token) {
+        return await window.apiClient.get(`/invitations/${token}`);
+    },
+
+    deleteInvitation: async function(token) {
+        return await window.apiClient.delete(`/invitations/${token}`);
     }
 };
 

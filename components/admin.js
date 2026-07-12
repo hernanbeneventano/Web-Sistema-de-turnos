@@ -155,32 +155,69 @@ window.addEventListener("DOMContentLoaded", () => {
     // 2. GESTIÓN DE MÉDICOS
     app.registerView("gestion_medicos", async (container) => {
         const doctors = await window.db.getDoctors();
+        const invitations = await window.db.getInvitations() || [];
         const specialties = await window.db.getSpecialties();
 
         let html = `
             <div class="admin-grid two-cols-main-sidebar animate__animated animate__fadeIn">
-                <div class="card">
-                    <div class="card-title">Listado de Profesionales</div>
-                    <div class="table-responsive">
-                        <table class="table-custom" id="table-admin-doctors">
-                            <thead>
-                                <tr>
-                                    <th>Médico</th>
-                                    <th>Especialidad</th>
-                                    <th>Horarios</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            </tbody>
-                        </table>
+                <div style="display:flex; flex-direction:column; gap:24px;">
+                    <!-- Listado de Médicos Activos -->
+                    <div class="card">
+                        <div class="card-title">Listado de Profesionales Activos</div>
+                        <div class="table-responsive">
+                            <table class="table-custom" id="table-admin-doctors">
+                                <thead>
+                                    <tr>
+                                        <th>Médico</th>
+                                        <th>Especialidad</th>
+                                        <th>Horarios</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Listado de Invitaciones Pendientes -->
+                    <div class="card">
+                        <div class="card-title">Invitaciones Pendientes (Médicos por Registrar)</div>
+                        <div class="table-responsive">
+                            <table class="table-custom" id="table-admin-invites">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Especialidad</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${invitations.length === 0
+                                        ? '<tr><td colspan="4" class="text-center text-muted">No hay invitaciones pendientes.</td></tr>'
+                                        : invitations.map(inv => `
+                                            <tr>
+                                                <td><strong>${inv.name}</strong></td>
+                                                <td>${inv.email}</td>
+                                                <td>${inv.specialty}</td>
+                                                <td>
+                                                    <button class="btn btn-danger btn-sm btn-delete-invite" data-token="${inv.token}">
+                                                        <i class="fa-solid fa-trash-can"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join("")}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div class="card-title" id="form-doc-title">Registrar Nuevo Médico</div>
+                    <div class="card-title" id="form-doc-title">Invitar Nuevo Médico</div>
+                    <p class="text-secondary mb-4" style="font-size:13px;">Se generará un enlace único para que el profesional complete su registro.</p>
                     <form id="form-admin-doctor">
-                        <input type="hidden" id="edit-doc-id">
                         <div class="form-group">
                             <label for="doc-name">Nombre Completo</label>
                             <input type="text" id="doc-name" required placeholder="Ej: Dr. Juan Pérez">
@@ -226,8 +263,7 @@ window.addEventListener("DOMContentLoaded", () => {
                             </div>
                         </div>
                         <div class="modal-actions" style="margin-top: 20px;">
-                            <button type="button" class="btn btn-secondary" id="btn-cancel-doc-edit" style="display:none;">Cancelar</button>
-                            <button type="submit" class="btn btn-primary" id="btn-submit-doc">Registrar Médico</button>
+                            <button type="submit" class="btn btn-primary btn-block" id="btn-submit-doc">Generar Enlace de Invitación</button>
                         </div>
                     </form>
                 </div>
@@ -237,27 +273,109 @@ window.addEventListener("DOMContentLoaded", () => {
         container.innerHTML = html;
 
         const tbody = container.querySelector("#table-admin-doctors tbody");
-        doctors.forEach(doc => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>
-                    <strong>${doc.name}</strong><br>
-                    <small class="text-secondary">Mat. ${doc.matricula}</small>
-                </td>
-                <td>${doc.specialty}</td>
-                <td><small>${getScheduleSummary(doc)}</small></td>
-                <td style="display: flex; gap: 6px;">
-                    <button class="btn btn-outline-primary btn-sm btn-edit-doc" data-id="${doc.id}"><i class="fa-solid fa-pen"></i></button>
-                    <button class="btn btn-danger btn-sm btn-delete-doc" data-id="${doc.id}"><i class="fa-solid fa-trash-can"></i></button>
-                </td>
-            `;
-            tbody.appendChild(tr);
+        if (doctors.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay médicos activos.</td></tr>';
+        } else {
+            doctors.forEach(doc => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>
+                        <strong>${doc.name}</strong><br>
+                        <small class="text-secondary">Mat. ${doc.matricula}</small>
+                    </td>
+                    <td>${doc.specialty}</td>
+                    <td><small>${getScheduleSummary(doc)}</small></td>
+                    <td>
+                        <button class="btn btn-danger btn-sm btn-delete-doc" data-id="${doc.id}"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Eliminar médico
+        tbody.querySelectorAll(".btn-delete-doc").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const id = btn.dataset.id;
+                if (confirm("¿Seguro que deseas eliminar a este profesional?")) {
+                    await window.db.deleteDoctor(id);
+                    app.showToast("Médico eliminado", "success");
+                    app.navigateTo("gestion_medicos");
+                }
+            });
+        });
+
+        // Eliminar invitación
+        container.querySelectorAll(".btn-delete-invite").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const token = btn.dataset.token;
+                if (confirm("¿Seguro que deseas cancelar esta invitación?")) {
+                    await window.db.deleteInvitation(token);
+                    app.showToast("Invitación cancelada", "success");
+                    app.navigateTo("gestion_medicos");
+                }
+            });
         });
 
         const form = container.querySelector("#form-admin-doctor");
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
-            app.showToast("Esta función se está sincronizando con el nuevo backend.", "info");
+
+            const name = document.getElementById("doc-name").value.trim();
+            const email = document.getElementById("doc-email").value.trim();
+            const specialty = document.getElementById("doc-specialty").value;
+            const matricula = document.getElementById("doc-matricula").value.trim();
+            const phone = document.getElementById("doc-phone").value.trim();
+            const start = document.getElementById("doc-start").value;
+            const end = document.getElementById("doc-end").value;
+
+            const daysChecked = form.querySelectorAll("input[name='admin-workday']:checked");
+            const workDays = Array.from(daysChecked).map(cb => parseInt(cb.value));
+
+            if (workDays.length === 0) {
+                app.showToast("Seleccione al menos un día de atención.", "warning");
+                return;
+            }
+
+            try {
+                app.showToast("Generando invitación...", "info");
+                const invite = await window.db.createInvitation({
+                    name, email, specialty, matricula, phone, workDays,
+                    workHours: { start, end }
+                });
+
+                const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${invite.token}`;
+
+                // Mostrar el link al admin para que lo envíe
+                const modalHtml = `
+                    <div class="card p-4 text-center">
+                        <i class="fa-solid fa-envelope-circle-check fa-3x text-success mb-3"></i>
+                        <h3>Invitación Generada</h3>
+                        <p class="text-secondary mt-2">Envía este enlace al profesional para que complete su registro:</p>
+                        <div class="mt-3" style="background:var(--bg-light); padding:12px; border-radius:8px; word-break:break-all; font-family:monospace; border:1px solid var(--border-color);">
+                            ${inviteLink}
+                        </div>
+                        <div class="modal-actions" style="border:none; margin-top:24px;">
+                            <button class="btn btn-secondary btn-close-modal">Cerrar</button>
+                            <button class="btn btn-primary btn-copy-invite" data-link="${inviteLink}">
+                                <i class="fa-solid fa-copy"></i> Copiar Enlace
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.innerHTML = modalHtml;
+                container.querySelector(".btn-copy-invite").onclick = () => {
+                    navigator.clipboard.writeText(inviteLink);
+                    app.showToast("Copiado al portapapeles", "success");
+                };
+                container.querySelector(".btn-close-modal").onclick = () => {
+                    app.navigateTo("gestion_medicos");
+                };
+
+            } catch (err) {
+                app.showToast(err.message, "error");
+            }
         });
     });
 
