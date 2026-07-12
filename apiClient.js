@@ -3,7 +3,7 @@
  * Maneja las peticiones al backend, inyección de tokens JWT y refresco automático.
  */
 
-const API_BASE_URL = "http://localhost:3001/api";
+const API_BASE_URL = "https://api-turnos-s0rd.onrender.com/api";
 
 const apiClient = {
     async request(endpoint, options = {}) {
