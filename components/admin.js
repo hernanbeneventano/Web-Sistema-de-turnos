@@ -264,32 +264,79 @@ window.addEventListener("DOMContentLoaded", () => {
     // 3. GESTIÓN DE ESPECIALIDADES
     app.registerView("gestion_especialidades", async (container) => {
         const specialties = await window.db.getSpecialties();
+
         container.innerHTML = `
             <div class="card animate__animated animate__fadeIn">
-                <div class="card-title">Gestión de Especialidades</div>
+                <div class="card-title">Gestión de Especialidades Médicas</div>
                 <div class="table-responsive">
                     <table class="table-custom">
-                        <thead><tr><th>Nombre</th><th>Acción</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Nombre de la Especialidad</th>
+                                <th style="width: 150px;">Acción</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            ${specialties.map(s => `<tr><td>${s}</td><td><button class="btn btn-danger btn-sm">Eliminar</button></td></tr>`).join("")}
+                            ${specialties.length === 0
+                                ? '<tr><td colspan="2" class="text-center text-muted">No hay especialidades registradas.</td></tr>'
+                                : specialties.map(s => `
+                                    <tr>
+                                        <td><strong>${s}</strong></td>
+                                        <td>
+                                            <button class="btn btn-danger btn-sm btn-delete-specialty" data-name="${s}">
+                                                <i class="fa-solid fa-trash-can"></i> Eliminar
+                                            </button>
+                                        </td>
+                                    </tr>`).join("")
+                            }
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-4">
-                    <form id="form-add-specialty" style="display:flex; gap:8px;">
-                        <input type="text" id="new-specialty-name" placeholder="Nueva especialidad..." required>
-                        <button type="submit" class="btn btn-primary">Agregar</button>
+
+                <div class="mt-4" style="background: var(--bg-light); padding: 20px; border-radius: var(--radius-md); border: 1px dashed var(--border-color);">
+                    <h4 style="font-size: 14px; margin-bottom: 12px; color: var(--text-secondary);">Agregar Nueva Especialidad</h4>
+                    <form id="form-add-specialty" style="display: flex; gap: 12px;">
+                        <input type="text" id="new-specialty-name" placeholder="Ej: Cardiología, Pediatría..." required style="flex: 1;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa-solid fa-plus"></i> Agregar
+                        </button>
                     </form>
                 </div>
             </div>
         `;
 
-        container.querySelector("#form-add-specialty").addEventListener("submit", async (e) => {
+        // Evento para Agregar
+        const addForm = container.querySelector("#form-add-specialty");
+        addForm.addEventListener("submit", async (e) => {
             e.preventDefault();
-            const name = document.getElementById("new-specialty-name").value;
-            await window.db.addSpecialty(name);
-            app.showToast("Especialidad agregada", "success");
-            app.navigateTo("gestion_especialidades");
+            const input = document.getElementById("new-specialty-name");
+            const name = input.value.trim();
+            if (!name) return;
+
+            try {
+                app.showToast("Agregando especialidad...", "info");
+                await window.db.addSpecialty(name);
+                app.showToast("Especialidad agregada correctamente", "success");
+                app.navigateTo("gestion_especialidades");
+            } catch (err) {
+                app.showToast(err.message, "error");
+            }
+        });
+
+        // Eventos para Eliminar
+        container.querySelectorAll(".btn-delete-specialty").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const name = btn.getAttribute("data-name");
+                if (confirm(`¿Seguro que deseas eliminar "${name}"?`)) {
+                    try {
+                        await window.db.deleteSpecialty(name);
+                        app.showToast("Especialidad eliminada", "success");
+                        app.navigateTo("gestion_especialidades");
+                    } catch (err) {
+                        app.showToast(err.message, "error");
+                    }
+                }
+            });
         });
     });
 

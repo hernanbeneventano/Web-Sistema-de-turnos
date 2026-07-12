@@ -13,9 +13,16 @@ const db = {
     getSpecialties: async function() {
         try {
             const data = await window.apiClient.get("/specialties");
-            // La API devuelve un array de strings ["Especialidad 1", "Especialidad 2"]
-            // Nos aseguramos de que cada elemento sea una string y no un objeto
-            return Array.isArray(data) ? data.map(s => typeof s === 'object' ? s.name : s) : [];
+            console.log("DB: Especialidades recibidas de la API:", data);
+
+            if (!Array.isArray(data)) return [];
+
+            // Limpieza extrema: si es un objeto con .name lo extrae, si es string lo deja, si es otra cosa lo ignora
+            return data.map(s => {
+                if (typeof s === 'string') return s;
+                if (s && typeof s === 'object' && s.name) return s.name;
+                return "Especialidad sin nombre";
+            });
         } catch (err) {
             console.error("Error al obtener especialidades:", err);
             return [];
