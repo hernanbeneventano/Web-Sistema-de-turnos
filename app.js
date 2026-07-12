@@ -12,6 +12,13 @@ const app = {
     views: {},
 
     init: async function() {
+        console.log("SALUD GOYA: Inicializando aplicación...");
+
+        if (!window.apiClient) {
+            console.error("API Client no encontrado. Asegúrate de que apiClient.js se carga correctamente.");
+            return;
+        }
+
         // 1. Vincular elementos globales del DOM
         this.bindEvents();
 
@@ -241,6 +248,7 @@ const app = {
 
     handlePageLogin: async function(e) {
         e.preventDefault();
+        console.log("Intentando iniciar sesión...");
         const email = document.getElementById("page-login-email").value.trim();
         const password = document.getElementById("page-login-password").value;
 
@@ -299,11 +307,17 @@ const app = {
     },
 
     switchPageAuthTab: function(tab) {
+        console.log("Cambiando a pestaña:", tab);
         const loginBtn = document.getElementById("page-tab-login");
         const regBtn = document.getElementById("page-tab-register");
         const loginForm = document.getElementById("page-login-form");
         const regForm = document.getElementById("page-register-form");
         const title = document.getElementById("auth-page-title");
+
+        if (!loginForm || !regForm) {
+            console.error("No se encontraron los formularios de login/registro en el DOM.");
+            return;
+        }
 
         if (tab === "login") {
             loginBtn.classList.add("active");
