@@ -203,7 +203,7 @@ const app = {
         });
 
         // Título de la vista
-        const pageTitle = document.getElementById("page-view-title");
+        const pageTitle = document.getElementById("view-title");
         const titles = {
             dashboard: "Mis Turnos Reservados",
             reservar: "Solicitar Nuevo Turno",
@@ -220,7 +220,7 @@ const app = {
         if (pageTitle) pageTitle.textContent = titles[viewId] || "SALUD GOYA";
 
         // Renderizar la vista
-        const mainContent = document.getElementById("main-content");
+        const mainContent = document.getElementById("content-body");
         if (mainContent && this.views[viewId]) {
             mainContent.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
             try {
@@ -359,7 +359,7 @@ const app = {
         if (!this.currentUser || this.currentUser.role !== 'admin') return;
         try {
             const notifs = await window.db.getNotifications();
-            const badge = document.getElementById("notif-badge");
+            const badge = document.getElementById("notif-count");
             if (badge) {
                 badge.textContent = notifs.length;
                 badge.style.display = notifs.length > 0 ? "flex" : "none";
@@ -370,7 +370,7 @@ const app = {
     },
 
     renderNotificationList: async function() {
-        const container = document.getElementById("notification-list");
+        const container = document.getElementById("notif-list-container");
         if (!container) return;
         container.innerHTML = '<div class="loader"></div>';
 
