@@ -1,24 +1,25 @@
 {
   "name": "web-sistema-de-turnos",
   "version": "1.0.0",
-  "description": "",
+  "description": "Frontend para el sistema de gestión de turnos SALUD GOYA",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "npx serve ."
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hernanbeneventano/Web-Sistema-de-turnos.git"
   },
-  "keywords": [],
+  "keywords": [
+    "frontend",
+    "spa",
+    "medical-appointments"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "bugs": {
     "url": "https://github.com/hernanbeneventano/Web-Sistema-de-turnos/issues"
   },
   "homepage": "https://github.com/hernanbeneventano/Web-Sistema-de-turnos#readme",
-  "dependencies": {
-    "firebase-admin": "^14.0.0"
-  }
+  "dependencies": {}
 }

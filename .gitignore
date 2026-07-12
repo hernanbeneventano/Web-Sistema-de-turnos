@@ -29,3 +29,38 @@ build/
 
 # Coverage
 coverage/
+
+# Misc
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+
+# Temporary files
+.cache/
+tmp/
+
+# Test artifacts
+jest-results.json
+test-results.txt
+
+# Generated documents and reports
+*.pdf
+
+# npm debug
+npm-debug.log*
+
+# dotenv environment variables
+.env.local
+.env.*.local
+
+# Build / bundler folders
+dist/
+build/
+
+# Others
+.nyc_output/
+coverage/
+node_modules/

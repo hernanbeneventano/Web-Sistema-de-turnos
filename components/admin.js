@@ -7,21 +7,15 @@ window.addEventListener("DOMContentLoaded", () => {
     
     // 1. DASHBOARD ESTADÍSTICO DE ADMINISTRACIÓN
     app.registerView("dashboard_admin", async (container) => {
-        const appointments = await window.db.getAppointments();
-        const patients = await window.db.getPatients();
-        const doctors = await window.db.getDoctors();
-        const config = await window.db.getSystemConfig();
+        const stats = await window.db.getAdminStats();
+        const appointments = await window.db.getAppointments(); // Para el ranking de especialidades
 
-        const totalApp = appointments.length;
-        const attendedApp = appointments.filter(a => a.status === "Atendido").length;
-        const cancelledApp = appointments.filter(a => a.status === "Cancelado").length;
-        const absentApp = appointments.filter(a => a.status === "Ausente").length;
-        const suspendedPatients = patients.filter(p => p.status === "Suspendido").length;
-
-        // Calcular Ganancias Totales
-        const totalEarnings = appointments
-            .filter(a => a.paid)
-            .reduce((sum, a) => sum + (a.price || 0), 0);
+        const totalApp = stats.totalApp;
+        const attendedApp = stats.attendedApp;
+        const cancelledApp = stats.cancelledApp;
+        const absentApp = stats.absentApp;
+        const suspendedPatients = stats.suspendedPatients;
+        const totalEarnings = stats.totalEarnings;
 
         let html = `
             <div class="stats-grid animate__animated animate__fadeIn">
@@ -91,7 +85,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
         // Cargar copagos pendientes
         const tbody = container.querySelector("#table-pending-copays tbody");
-        const pendingPayments = appointments.filter(a => !a.paid && ["Confirmado", "Atendido"].includes(a.status));
+        const pendingPayments = stats.pendingPayments;
 
         if (pendingPayments.length === 0) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No hay cobros de copago pendientes.</td></tr>`;
