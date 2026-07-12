@@ -14,9 +14,10 @@ const db = {
         try {
             const data = await window.apiClient.get("/specialties");
             // La API devuelve un array de strings ["Especialidad 1", "Especialidad 2"]
-            return data;
+            // Nos aseguramos de que cada elemento sea una string y no un objeto
+            return Array.isArray(data) ? data.map(s => typeof s === 'object' ? s.name : s) : [];
         } catch (err) {
-            console.error(err);
+            console.error("Error al obtener especialidades:", err);
             return [];
         }
     },
