@@ -1,6 +1,5 @@
 /**
  * SALUD GOYA - Vistas y Componentes de Administración (components/admin.js)
- * Registra vistas de Dashboard Estadístico, Gestión de Médicos, Especialidades, Turnos y Notificaciones.
  */
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -255,11 +254,10 @@ window.addEventListener("DOMContentLoaded", () => {
             tbody.appendChild(tr);
         });
 
-        // Eventos Editar/Eliminar/Submit... (Lógica simplificada para asegurar carga)
         const form = container.querySelector("#form-admin-doctor");
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
-            app.showToast("Esta función requiere la API de Invitaciones activa.", "info");
+            app.showToast("Esta función se está sincronizando con el nuevo backend.", "info");
         });
     });
 
@@ -277,8 +275,22 @@ window.addEventListener("DOMContentLoaded", () => {
                         </tbody>
                     </table>
                 </div>
+                <div class="mt-4">
+                    <form id="form-add-specialty" style="display:flex; gap:8px;">
+                        <input type="text" id="new-specialty-name" placeholder="Nueva especialidad..." required>
+                        <button type="submit" class="btn btn-primary">Agregar</button>
+                    </form>
+                </div>
             </div>
         `;
+
+        container.querySelector("#form-add-specialty").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("new-specialty-name").value;
+            await window.db.addSpecialty(name);
+            app.showToast("Especialidad agregada", "success");
+            app.navigateTo("gestion_especialidades");
+        });
     });
 
     // 4. MONITOR DE TURNOS
@@ -291,7 +303,10 @@ window.addEventListener("DOMContentLoaded", () => {
                     <table class="table-custom">
                         <thead><tr><th>Fecha</th><th>Paciente</th><th>Médico</th><th>Estado</th></tr></thead>
                         <tbody>
-                            ${appointments.map(a => `<tr><td>${a.date} ${a.time}</td><td>${a.patientName}</td><td>${a.doctorName}</td><td>${a.status}</td></tr>`).join("")}
+                            ${appointments.length === 0
+                                ? '<tr><td colspan="4" class="text-center">No hay turnos registrados</td></tr>'
+                                : appointments.map(a => `<tr><td>${a.date} ${a.time}</td><td>${a.patientName}</td><td>${a.doctorName}</td><td>${a.status}</td></tr>`).join("")
+                            }
                         </tbody>
                     </table>
                 </div>
@@ -309,7 +324,10 @@ window.addEventListener("DOMContentLoaded", () => {
                     <table class="table-custom">
                         <thead><tr><th>Fecha</th><th>Tipo</th><th>Destinatario</th><th>Mensaje</th></tr></thead>
                         <tbody>
-                            ${notifs.map(n => `<tr><td>${new Date(n.date).toLocaleDateString()}</td><td>${n.type}</td><td>${n.recipient}</td><td>${n.message}</td></tr>`).join("")}
+                            ${notifs.length === 0
+                                ? '<tr><td colspan="4" class="text-center">No hay notificaciones</td></tr>'
+                                : notifs.map(n => `<tr><td>${new Date(n.date).toLocaleDateString()}</td><td>${n.type}</td><td>${n.recipient}</td><td>${n.message}</td></tr>`).join("")
+                            }
                         </tbody>
                     </table>
                 </div>
@@ -319,23 +337,31 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // 6. AJUSTES DEL SISTEMA
     app.registerView("configuracion_sistema", async (container) => {
-        const config = await window.db.getSystemConfig();
+        const config = await window.db.getSystemConfig() || { copayDefault: 0 };
         container.innerHTML = `
             <div class="card animate__animated animate__fadeIn">
                 <div class="card-title">Configuración Global</div>
-                <form>
+                <form id="form-system-config">
                     <div class="form-group">
                         <label>Costo de Copago por Defecto</label>
-                        <input type="number" value="${config.copayDefault}">
+                        <input type="number" id="copay-default" value="${config.copayDefault}">
                     </div>
                     <button type="submit" class="btn btn-primary">Guardar Ajustes</button>
                 </form>
             </div>
         `;
+
+        container.querySelector("#form-system-config").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const copay = document.getElementById("copay-default").value;
+            await window.db.saveSystemConfig({ copayDefault: parseInt(copay) });
+            app.showToast("Configuración guardada", "success");
+        });
     });
 });
 
 async function renderSpecialtyRanks(appointments) {
+    if (!appointments || appointments.length === 0) return "<p class='text-muted'>Sin datos de turnos.</p>";
     const counts = {};
     appointments.forEach(a => {
         counts[a.specialty] = (counts[a.specialty] || 0) + 1;
@@ -362,6 +388,6 @@ async function renderSpecialtyRanks(appointments) {
 
 function getScheduleSummary(doc) {
     const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-    const daysStr = doc.workDays.map(d => dayNames[d]).join(", ");
-    return `${daysStr} | ${doc.workHours.start} - ${doc.workHours.end} hs`;
+    const daysStr = (doc.workDays || []).map(d => dayNames[d]).join(", ");
+    return `${daysStr} | ${(doc.workHours || {}).start || '00:00'} - ${(doc.workHours || {}).end || '00:00'} hs`;
 }

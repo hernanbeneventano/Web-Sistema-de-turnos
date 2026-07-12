@@ -13,7 +13,8 @@ const db = {
     getSpecialties: async function() {
         try {
             const data = await window.apiClient.get("/specialties");
-            return data.map(s => s.name);
+            // La API devuelve un array de strings ["Especialidad 1", "Especialidad 2"]
+            return data;
         } catch (err) {
             console.error(err);
             return [];
@@ -26,13 +27,8 @@ const db = {
     },
 
     deleteSpecialty: async function(name) {
-        // La API usa IDs para borrar, pero el frontend actual usa nombres.
-        // Buscamos el ID primero si es necesario o ajustamos la API.
-        const specialties = await window.apiClient.get("/specialties");
-        const spec = specialties.find(s => s.name === name);
-        if (spec) {
-            await window.apiClient.delete(`/specialties/${spec.id}`);
-        }
+        // La API ya maneja el borrado por nombre en este endpoint
+        await window.apiClient.delete(`/specialties/${encodeURIComponent(name)}`);
         return this.getSpecialties();
     },
 
