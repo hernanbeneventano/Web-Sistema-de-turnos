@@ -71,7 +71,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
         const tbody = container.querySelector("#table-doctor-agenda tbody");
 
-        const renderAgendaRows = (filterType) => {
+        const renderAgendaRows = async (filterType) => {
             tbody.innerHTML = "";
             let appointments = [...allAppointments];
 
@@ -91,62 +91,73 @@ window.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            appointments.forEach(async appo => {
-                const tr = document.createElement("tr");
+            // Renderizado optimizado: pre-cargamos datos de pacientes en paralelo
+            const rowsHtml = await Promise.all(appointments.map(async appo => {
                 const formattedDate = new Date(appo.date + "T00:00:00").toLocaleDateString('es-AR', {
                     day: '2-digit', month: '2-digit', year: 'numeric'
                 });
                 
-                // Buscar datos adicionales del paciente (teléfono)
-                const patientObj = await window.db.getPatientById(appo.patientId);
-                const phone = patientObj ? patientObj.phone : "-";
+                // Buscar datos adicionales del paciente (teléfono) con manejo de errores
+                let phone = "-";
+                let dni = "-";
+                try {
+                    const patientObj = await window.db.getPatientById(appo.patientId);
+                    if (patientObj) {
+                        phone = patientObj.phone || "-";
+                        dni = patientObj.dni || "-";
+                    }
+                } catch (err) {
+                    console.warn(`No se pudo obtener datos del paciente ${appo.patientId}:`, err);
+                }
                 
                 const safeStatus = appo.status || "Solicitado";
                 const isConfirmado = safeStatus === "Confirmado";
                 const isSolicitado = safeStatus === "Solicitado";
-                const canAttend = isConfirmado || isSolicitado; // Permitimos atender turnos confirmados o solicitados
+                const canAttend = isConfirmado || isSolicitado;
                 
                 const statusBadge = `<span class="badge-status ${safeStatus.toLowerCase()}"><i class="fa-solid fa-circle"></i> ${safeStatus}</span>`;
                 const paymentBadge = appo.paid 
                     ? `<span class="badge-payment pago"><i class="fa-solid fa-check"></i> Pago</span>` 
                     : `<span class="badge-payment pendiente"><i class="fa-solid fa-clock"></i> Pendiente</span>`;
 
-                tr.innerHTML = `
-                    <td>
-                        <strong>${formattedDate}</strong><br>
-                        <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs${appo.duration ? ` · ${appo.duration} min` : ''}</small>
-                    </td>
-                    <td><strong>${appo.patientName}</strong></td>
-                    <td>
-                        DNI: ${patientObj ? patientObj.dni : "-"}<br>
-                        <small class="text-secondary"><i class="fa-solid fa-phone"></i> ${phone}</small>
-                    </td>
-                    <td>
-                        $${appo.price}<br>
-                        ${paymentBadge}
-                    </td>
-                    <td>${statusBadge}</td>
-                    <td class="gap-2" style="display: flex; gap: 8px;">
-                        ${canAttend 
-                            ? `
-                                <button class="btn btn-success btn-sm btn-attend-pat" data-id="${appo.id}" data-pat-id="${appo.patientId}" data-pat-name="${appo.patientName}" data-pat-dni="${patientObj ? patientObj.dni : '-'}" data-datetime="${formattedDate} a las ${appo.time} hs">
-                                    <i class="fa-solid fa-stethoscope"></i> Atender
-                                </button>
-                                <button class="btn btn-info btn-sm btn-advance-pat" data-id="${appo.id}" data-date="${appo.date}" data-time="${appo.time}">
-                                    <i class="fa-solid fa-forward"></i> Adelantar
-                                </button>
-                                <button class="btn btn-warning btn-sm btn-absent-pat" data-id="${appo.id}">
-                                    <i class="fa-solid fa-user-slash"></i> Ausente
-                                </button>
-                            `
-                            : `<span class="text-muted">Sin acciones</span>`
-                        }
-                    </td>
+                return `
+                    <tr>
+                        <td>
+                            <strong>${formattedDate}</strong><br>
+                            <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs${appo.duration ? ` · ${appo.duration} min` : ''}</small>
+                        </td>
+                        <td><strong>${appo.patientName}</strong></td>
+                        <td>
+                            DNI: ${dni}<br>
+                            <small class="text-secondary"><i class="fa-solid fa-phone"></i> ${phone}</small>
+                        </td>
+                        <td>
+                            $${appo.price}<br>
+                            ${paymentBadge}
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td class="gap-2" style="display: flex; gap: 8px;">
+                            ${canAttend
+                                ? `
+                                    <button class="btn btn-success btn-sm btn-attend-pat" data-id="${appo.id}" data-pat-id="${appo.patientId}" data-pat-name="${appo.patientName}" data-pat-dni="${dni}" data-datetime="${formattedDate} a las ${appo.time} hs">
+                                        <i class="fa-solid fa-stethoscope"></i> Atender
+                                    </button>
+                                    <button class="btn btn-info btn-sm btn-advance-pat" data-id="${appo.id}" data-date="${appo.date}" data-time="${appo.time}">
+                                        <i class="fa-solid fa-forward"></i> Adelantar
+                                    </button>
+                                    <button class="btn btn-warning btn-sm btn-absent-pat" data-id="${appo.id}">
+                                        <i class="fa-solid fa-user-slash"></i> Ausente
+                                    </button>
+                                `
+                                : `<span class="text-muted">Sin acciones</span>`
+                            }
+                        </td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
-            });
+            }));
 
-            // Delegated click handler for action buttons in the agenda rows
+            tbody.innerHTML = rowsHtml.join("");
+        };  // Delegated click handler for action buttons in the agenda rows
             tbody.addEventListener("click", async (e) => {
                 const btn = e.target.closest("button");
                 if (!btn) return;
@@ -255,7 +266,6 @@ window.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
             });
-        };
 
         // Registrar Tabs de Filtro
         container.querySelectorAll(".btn-filter-agenda").forEach(btn => {
@@ -348,7 +358,7 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     // 2. CONFIGURACIÓN DE HORARIOS DEL MÉDICO
-    app.registerView("config_doctor", async (container) => {
+    app.registerView("configuracion_horarios", async (container) => {
         const doctor = app.currentUser;
         if (!doctor) return renderNoDoctorSession(container);
 
