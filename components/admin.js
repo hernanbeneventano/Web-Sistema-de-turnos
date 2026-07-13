@@ -84,7 +84,7 @@ window.addEventListener("DOMContentLoaded", () => {
             if (pendingPayments.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No hay cobros de copago pendientes.</td></tr>`;
             } else {
-                pendingPayments.slice(0, 5).forEach(appo => {
+                pendingPayments.forEach(appo => {
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
                         <td><strong>${appo.patientName}</strong></td>
@@ -469,22 +469,75 @@ window.addEventListener("DOMContentLoaded", () => {
     // 4. MONITOR DE TURNOS
     app.registerView("gestion_turnos", async (container) => {
         const appointments = await window.db.getAppointments();
+        // Ordenar por fecha más reciente
+        appointments.sort((a, b) => new Date(b.date + 'T' + b.time) - new Date(a.date + 'T' + a.time));
+
         container.innerHTML = `
             <div class="card animate__animated animate__fadeIn">
                 <div class="card-title">Todos los Turnos del Sistema</div>
                 <div class="table-responsive">
-                    <table class="table-custom">
-                        <thead><tr><th>Fecha</th><th>Paciente</th><th>Médico</th><th>Estado</th></tr></thead>
+                    <table class="table-custom" id="table-all-appointments">
+                        <thead>
+                            <tr>
+                                <th>Fecha y Hora</th>
+                                <th>Paciente</th>
+                                <th>Médico / Especialidad</th>
+                                <th>Estado</th>
+                                <th>Pago</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             ${appointments.length === 0
-                                ? '<tr><td colspan="4" class="text-center">No hay turnos registrados</td></tr>'
-                                : appointments.map(a => `<tr><td>${a.date} ${a.time}</td><td>${a.patientName}</td><td>${a.doctorName}</td><td>${a.status}</td></tr>`).join("")
+                                ? '<tr><td colspan="6" class="text-center">No hay turnos registrados</td></tr>'
+                                : appointments.map(a => {
+                                    const paymentBadge = a.paid
+                                        ? `<span class="badge-payment pago"><i class="fa-solid fa-check"></i> Pago</span>`
+                                        : `<span class="badge-payment pendiente"><i class="fa-solid fa-clock"></i> Pendiente</span>`;
+
+                                    const statusClass = (a.status || 'solicitado').toLowerCase();
+
+                                    return `
+                                        <tr>
+                                            <td>
+                                                <strong>${new Date(a.date + 'T00:00:00').toLocaleDateString()}</strong><br>
+                                                <small class="text-secondary">${a.time} hs</small>
+                                            </td>
+                                            <td>${a.patientName}</td>
+                                            <td>
+                                                ${a.doctorName}<br>
+                                                <small class="text-secondary">${a.specialty}</small>
+                                            </td>
+                                            <td><span class="badge-status ${statusClass}">${a.status}</span></td>
+                                            <td>${paymentBadge}</td>
+                                            <td>
+                                                ${!a.paid
+                                                    ? `<button class="btn btn-success btn-sm btn-action-cobrar" data-id="${a.id}">Cobrar</button>`
+                                                    : '<span class="text-muted">-</span>'
+                                                }
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join("")
                             }
                         </tbody>
                     </table>
                 </div>
             </div>
         `;
+
+        container.querySelectorAll(".btn-action-cobrar").forEach(btn => {
+            btn.addEventListener("click", async () => {
+                const appId = btn.dataset.id;
+                try {
+                    await window.db.updateAppointmentStatus(appId, null, { paid: true });
+                    app.showToast("Pago registrado correctamente.", "success");
+                    app.navigateTo("gestion_turnos");
+                } catch (err) {
+                    app.showToast(err.message, "error");
+                }
+            });
+        });
     });
 
     // 5. LOG DE NOTIFICACIONES

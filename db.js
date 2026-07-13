@@ -98,10 +98,10 @@ const db = {
     },
 
     updateAppointmentStatus: async function(appId, newStatus, additionalDetails = {}) {
-        return await window.apiClient.patch(`/appointments/${appId}/status`, {
-            status: newStatus,
-            ...additionalDetails
-        });
+        const payload = { ...additionalDetails };
+        if (newStatus) payload.status = newStatus;
+
+        return await window.apiClient.patch(`/appointments/${appId}/status`, payload);
     },
 
     updateAppointmentSchedule: async function(appId, newDate, newTime) {
