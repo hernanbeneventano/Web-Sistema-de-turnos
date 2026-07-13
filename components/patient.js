@@ -471,7 +471,14 @@ window.addEventListener("DOMContentLoaded", () => {
             nextBtn.disabled = false;
             nextBtn.className = "btn btn-success";
 
-            const config = await window.db.getSystemConfig();
+            let config = { copayDefault: 0 };
+            try {
+                const fetchedConfig = await window.db.getSystemConfig();
+                if (fetchedConfig) config = fetchedConfig;
+            } catch (err) {
+                console.warn("No se pudo obtener la configuración del sistema para el copago, usando valor por defecto.");
+            }
+
             const formattedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString('es-AR', {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
             });
@@ -544,7 +551,7 @@ window.addEventListener("DOMContentLoaded", () => {
                     const paymentMethod = paymentMethodSelect ? paymentMethodSelect.value : '';
 
                     await window.db.createAppointment({
-                        patientId: patient.id,
+                        patientId: patient.id || patient.uid,
                         doctorId: selectedDoctor.id,
                         doctorName: selectedDoctor.name,
                         specialty: selectedSpecialty,
