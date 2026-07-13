@@ -3,529 +3,370 @@
  * Registra vistas de Agenda Médica y Configuración de Horarios.
  */
 
-window.addEventListener("DOMContentLoaded", () => {
-    
-    // 1. AGENDA MÉDICA
-    app.registerView("agenda", async (container) => {
-        const doctor = app.currentUser;
-        if (!doctor) return renderNoDoctorSession(container);
+(function() {
+    const registerDoctorViews = () => {
+        if (!window.app) {
+            console.log("Esperando a que 'app' esté listo para registrar vistas de médico...");
+            setTimeout(registerDoctorViews, 100);
+            return;
+        }
 
-        // Obtener turnos asignados a este doctor
-        const allAppointments = await window.db.getAppointmentsByDoctor(doctor.id);
+        console.log("Registrando vistas de médico en 'app'...");
 
-        let html = `
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon blue"><i class="fa-solid fa-calendar-days"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-value">${allAppointments.filter(a => ["Confirmado", "Solicitado"].includes(a.status)).length}</span>
-                        <span class="stat-label">Turnos Pendientes</span>
+        // 1. AGENDA MÉDICA
+        app.registerView("agenda", async (container) => {
+            console.log("SALUD GOYA: Renderizando vista Agenda...");
+            const doctor = app.currentUser;
+            if (!doctor) return renderNoDoctorSession(container);
+
+            try {
+                // Forzamos un pequeño retraso para asegurar que la UI se limpie
+                container.innerHTML = `<div class="loader-container"><div class="loader"></div><p>Cargando turnos...</p></div>`;
+
+                const allAppointments = await window.db.getAppointmentsByDoctor(doctor.id);
+                console.log(`Agenda: Encontrados ${allAppointments.length} turnos totales.`);
+
+                let html = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon blue"><i class="fa-solid fa-calendar-days"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-value">${allAppointments.filter(a => ["Confirmado", "Solicitado"].includes(a.status)).length}</span>
+                                <span class="stat-label">Turnos Pendientes</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green"><i class="fa-solid fa-square-check"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-value">${allAppointments.filter(a => a.status === "Atendido").length}</span>
+                                <span class="stat-label">Pacientes Atendidos</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon red"><i class="fa-solid fa-user-slash"></i></div>
+                            <div class="stat-content">
+                                <span class="stat-value">${allAppointments.filter(a => a.status === "Ausente").length}</span>
+                                <span class="stat-label">Inasistencias Registradas</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon green"><i class="fa-solid fa-square-check"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-value">${allAppointments.filter(a => a.status === "Atendido").length}</span>
-                        <span class="stat-label">Pacientes Atendidos</span>
+
+                    <div class="card">
+                        <div class="card-title">
+                            <span>Pacientes Citados en Agenda</span>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-outline-primary btn-sm btn-filter-agenda active" data-filter="pending">Pendientes</button>
+                                <button class="btn btn-outline-primary btn-sm btn-filter-agenda" data-filter="today">Hoy</button>
+                                <button class="btn btn-outline-primary btn-sm btn-filter-agenda" data-filter="all">Todos</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table-custom" id="table-doctor-agenda">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha y Hora</th>
+                                        <th>Paciente</th>
+                                        <th>DNI / Teléfono</th>
+                                        <th>Copago</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon red"><i class="fa-solid fa-user-slash"></i></div>
-                    <div class="stat-content">
-                        <span class="stat-value">${allAppointments.filter(a => a.status === "Ausente").length}</span>
-                        <span class="stat-label">Inasistencias Registradas</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">
-                    <span>Pacientes Citados en Agenda</span>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-outline-primary btn-sm btn-filter-agenda active" data-filter="pending">Pendientes</button>
-                        <button class="btn btn-outline-primary btn-sm btn-filter-agenda" data-filter="today">Hoy</button>
-                        <button class="btn btn-outline-primary btn-sm btn-filter-agenda" data-filter="all">Todos</button>
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table-custom" id="table-doctor-agenda">
-                        <thead>
-                            <tr>
-                                <th>Fecha y Hora</th>
-                                <th>Paciente</th>
-                                <th>DNI / Teléfono</th>
-                                <th>Copago</th>
-                                <th>Estado</th>
-                                <th>Acciones de Atención</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Llenado dinámico -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-
-        container.innerHTML = html;
-
-        const tbody = container.querySelector("#table-doctor-agenda tbody");
-
-        const renderAgendaRows = async (filterType) => {
-            tbody.innerHTML = "";
-            let appointments = [...allAppointments];
-
-            const todayStr = new Date().toISOString().split("T")[0];
-
-            if (filterType === "pending") {
-                appointments = appointments.filter(a => ["Solicitado", "Confirmado"].includes(a.status));
-            } else if (filterType === "today") {
-                appointments = appointments.filter(a => a.date === todayStr);
-            }
-
-            // Ordenar por fecha y hora ascendente
-            appointments.sort((a, b) => new Date(a.date + "T" + a.time) - new Date(b.date + "T" + b.time));
-
-            if (appointments.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No se encontraron turnos en la agenda bajo este filtro.</td></tr>`;
-                return;
-            }
-
-            // Renderizado optimizado: pre-cargamos datos de pacientes en paralelo
-            const rowsHtml = await Promise.all(appointments.map(async appo => {
-                const formattedDate = new Date(appo.date + "T00:00:00").toLocaleDateString('es-AR', {
-                    day: '2-digit', month: '2-digit', year: 'numeric'
-                });
-                
-                // Buscar datos adicionales del paciente (teléfono) con manejo de errores
-                let phone = "-";
-                let dni = "-";
-                try {
-                    const patientObj = await window.db.getPatientById(appo.patientId);
-                    if (patientObj) {
-                        phone = patientObj.phone || "-";
-                        dni = patientObj.dni || "-";
-                    }
-                } catch (err) {
-                    console.warn(`No se pudo obtener datos del paciente ${appo.patientId}:`, err);
-                }
-                
-                const safeStatus = appo.status || "Solicitado";
-                const isConfirmado = safeStatus === "Confirmado";
-                const isSolicitado = safeStatus === "Solicitado";
-                const canAttend = isConfirmado || isSolicitado;
-                
-                const statusBadge = `<span class="badge-status ${safeStatus.toLowerCase()}"><i class="fa-solid fa-circle"></i> ${safeStatus}</span>`;
-                const paymentBadge = appo.paid 
-                    ? `<span class="badge-payment pago"><i class="fa-solid fa-check"></i> Pago</span>` 
-                    : `<span class="badge-payment pendiente"><i class="fa-solid fa-clock"></i> Pendiente</span>`;
-
-                return `
-                    <tr>
-                        <td>
-                            <strong>${formattedDate}</strong><br>
-                            <small class="text-secondary"><i class="fa-regular fa-clock"></i> ${appo.time} hs${appo.duration ? ` · ${appo.duration} min` : ''}</small>
-                        </td>
-                        <td><strong>${appo.patientName}</strong></td>
-                        <td>
-                            DNI: ${dni}<br>
-                            <small class="text-secondary"><i class="fa-solid fa-phone"></i> ${phone}</small>
-                        </td>
-                        <td>
-                            $${appo.price}<br>
-                            ${paymentBadge}
-                        </td>
-                        <td>${statusBadge}</td>
-                        <td class="gap-2" style="display: flex; gap: 8px;">
-                            ${canAttend
-                                ? `
-                                    <button class="btn btn-success btn-sm btn-attend-pat" data-id="${appo.id}" data-pat-id="${appo.patientId}" data-pat-name="${appo.patientName}" data-pat-dni="${dni}" data-datetime="${formattedDate} a las ${appo.time} hs">
-                                        <i class="fa-solid fa-stethoscope"></i> Atender
-                                    </button>
-                                    <button class="btn btn-info btn-sm btn-advance-pat" data-id="${appo.id}" data-date="${appo.date}" data-time="${appo.time}">
-                                        <i class="fa-solid fa-forward"></i> Adelantar
-                                    </button>
-                                    <button class="btn btn-warning btn-sm btn-absent-pat" data-id="${appo.id}">
-                                        <i class="fa-solid fa-user-slash"></i> Ausente
-                                    </button>
-                                `
-                                : `<span class="text-muted">Sin acciones</span>`
-                            }
-                        </td>
-                    </tr>
                 `;
-            }));
 
-            tbody.innerHTML = rowsHtml.join("");
-        };  // Delegated click handler for action buttons in the agenda rows
-            tbody.addEventListener("click", async (e) => {
-                const btn = e.target.closest("button");
-                if (!btn) return;
+                container.innerHTML = html;
+                const tbody = container.querySelector("#table-doctor-agenda tbody");
 
-                // Atender
-                if (btn.classList.contains("btn-attend-pat")) {
-                    const appId = btn.getAttribute("data-id");
-                    const patId = btn.getAttribute("data-pat-id");
-                    const patName = btn.getAttribute("data-pat-name");
-                    const patDni = btn.getAttribute("data-pat-dni");
-                    const datetime = btn.getAttribute("data-datetime");
+                const renderRows = async (filterType) => {
+                    tbody.innerHTML = `<tr><td colspan="6" class="text-center p-4"><i class="fa-solid fa-circle-notch fa-spin"></i> Filtrando lista...</td></tr>`;
 
-                    document.getElementById("consult-app-id").value = appId;
-                    document.getElementById("consult-patient-id").value = patId;
-                    document.getElementById("consult-patient-name").textContent = patName;
-                    document.getElementById("consult-patient-dni").textContent = patDni;
-                    document.getElementById("consult-app-datetime").textContent = datetime;
+                    let filtered = [...allAppointments];
+                    const todayStr = new Date().toISOString().split("T")[0];
 
-                    document.getElementById("consult-diagnostic").value = "";
-                    document.getElementById("consult-observations").value = "";
-                    document.getElementById("consult-indications").value = "";
-                    document.getElementById("consult-recipe").value = "";
+                    if (filterType === "pending") {
+                        filtered = filtered.filter(a => ["Solicitado", "Confirmado"].includes(a.status));
+                    } else if (filterType === "today") {
+                        filtered = filtered.filter(a => a.date === todayStr);
+                    }
 
-                    app.openModal("consultation-modal");
-                    return;
-                }
+                    filtered.sort((a, b) => new Date(a.date + "T" + a.time) - new Date(b.date + "T" + b.time));
 
-                // Adelantar
-                if (btn.classList.contains("btn-advance-pat")) {
-                    const appId = btn.getAttribute("data-id");
-                    const appDate = btn.getAttribute("data-date");
-                    const appointment = allAppointments.find(a => a.id === appId);
-                    if (!appointment) return;
+                    if (filtered.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted p-4">No se encontraron turnos para este filtro.</td></tr>`;
+                        return;
+                    }
 
-                    try {
-                        const duration = parseInt(appointment.duration, 10) || 30;
-                        const slots = await window.db.getDoctorAvailability(doctor.id, appDate, duration);
-                        const availableEarlier = slots
-                            .filter(slot => slot.available && slot.time < appointment.time)
-                            .map(slot => slot.time);
+                    const rows = await Promise.all(filtered.map(async appo => {
+                        let patDni = "-", patPhone = "-";
+                        try {
+                            const p = await window.db.getPatientById(appo.patientId);
+                            if (p) { patDni = p.dni || "-"; patPhone = p.phone || "-"; }
+                        } catch(e) {}
 
-                        if (availableEarlier.length === 0) {
-                            app.showToast("No hay espacios libres anteriores para adelantar este turno.", "warning");
-                            return;
-                        }
+                        const statusBadge = `<span class="badge-status ${(appo.status || 'Solicitado').toLowerCase()}">${appo.status || 'Solicitado'}</span>`;
+                        const paymentBadge = appo.paid
+                            ? `<span class="badge-payment pago"><i class="fa-solid fa-check"></i> Pago</span>`
+                            : `<span class="badge-payment pendiente"><i class="fa-solid fa-clock"></i> Pendiente</span>`;
 
-                        // Mostrar modal con horarios anteriores disponibles
-                        const modal = document.getElementById('advance-modal');
-                        const list = modal.querySelector('#advance-times-list');
-                        modal.querySelector('#advance-modal-info').textContent = `Turno actual: ${appointment.time} hs — seleccione nueva hora anterior disponible:`;
-                        list.innerHTML = availableEarlier.map(t => `
-                            <label style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer;">
-                                <input type="radio" name="advance-time" value="${t}" ${t === availableEarlier[0] ? 'checked' : ''}>
-                                <span style="margin-left:6px;">${t} hs</span>
-                            </label>
-                        `).join('');
+                        const canAttend = ["Solicitado", "Confirmado"].includes(appo.status);
 
-                        const confirmBtn = modal.querySelector('#advance-confirm-btn');
-                        confirmBtn.dataset.appId = appId;
-                        confirmBtn.dataset.appDate = appDate;
+                        return `
+                            <tr>
+                                <td><strong>${new Date(appo.date + "T00:00:00").toLocaleDateString()}</strong><br><small>${appo.time} hs</small></td>
+                                <td><strong>${appo.patientName}</strong></td>
+                                <td>DNI: ${patDni}<br><small>${patPhone}</small></td>
+                                <td>$${appo.price}<br>${paymentBadge}</td>
+                                <td>${statusBadge}</td>
+                                <td>
+                                    <div style="display: flex; gap: 4px;">
+                                        ${canAttend ? `
+                                            <button class="btn btn-success btn-sm btn-attend-pat" data-id="${appo.id}" data-pat-id="${appo.patientId}" data-pat-name="${appo.patientName}" data-pat-dni="${patDni}" data-datetime="${appo.date} ${appo.time}">Atender</button>
+                                            <button class="btn btn-info btn-sm btn-advance-pat" data-id="${appo.id}" data-date="${appo.date}" data-time="${appo.time}">Adelantar</button>
+                                            <button class="btn btn-warning btn-sm btn-absent-pat" data-id="${appo.id}">Ausente</button>
+                                        ` : '<span class="text-muted">-</span>'}
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }));
+                    tbody.innerHTML = rows.join("");
 
-                        const onConfirm = async () => {
-                            const selected = modal.querySelector('input[name="advance-time"]:checked');
-                            if (!selected) {
-                                app.showToast('Debe seleccionar un horario para adelantar.', 'warning');
-                                return;
-                            }
-                            const selectedTime = selected.value;
-                            try {
-                                await window.db.updateAppointmentSchedule(appId, appDate, selectedTime);
-                                app.showToast(`Turno adelantado a las ${selectedTime} hs correctamente.`, 'success');
-                                app.closeModal('advance-modal');
-                                app.navigateTo('agenda');
-                            } catch (err) {
-                                app.showToast(err.message, 'error');
+                    // Eventos de botones en la tabla
+                    tbody.querySelectorAll(".btn-attend-pat").forEach(btn => {
+                        btn.onclick = () => {
+                            document.getElementById("consult-app-id").value = btn.dataset.id;
+                            document.getElementById("consult-patient-id").value = btn.dataset.patId;
+                            document.getElementById("consult-patient-name").textContent = btn.dataset.patName;
+                            document.getElementById("consult-patient-dni").textContent = btn.dataset.patDni;
+                            document.getElementById("consult-app-datetime").textContent = btn.dataset.datetime;
+                            app.openModal("consultation-modal");
+                        };
+                    });
+
+                    tbody.querySelectorAll(".btn-absent-pat").forEach(btn => {
+                        btn.onclick = async () => {
+                            if (confirm("¿Marcar paciente como ausente?")) {
+                                try {
+                                    await window.db.updateAppointmentStatus(btn.dataset.id, "Ausente");
+                                    app.showToast("Ausencia registrada", "warning");
+                                    app.navigateTo("agenda");
+                                } catch(e) { app.showToast(e.message, "error"); }
                             }
                         };
-
-                        // Usar listener una sola vez
-                        confirmBtn.addEventListener('click', onConfirm, { once: true });
-                        app.openModal('advance-modal');
-                    } catch (err) {
-                        app.showToast(err.message, "error");
-                    }
-                    return;
-                }
-
-                // Ausente
-                if (btn.classList.contains("btn-absent-pat")) {
-                    const appId = btn.getAttribute("data-id");
-                    if (!confirm("¿Está seguro de marcar al paciente como AUSENTE en esta consulta? Esto registrará una inasistencia.")) return;
-                    try {
-                        const updatedApp = await window.db.updateAppointmentStatus(appId, "Ausente");
-                        const patient = await window.db.getPatientById(updatedApp.patientId);
-                        if (patient.status === "Suspendido") {
-                            app.showToast(`Inasistencia registrada. ¡El paciente ${patient.name} ha sido SUSPENDIDO automáticamente por 30 días!`, "danger");
-                        } else {
-                            const config = await window.db.getSystemConfig();
-                            app.showToast(`Ausencia registrada. Inasistencias de ${patient.name}: ${patient.absences}/${config.maxAbsences}`, "warning");
-                        }
-                        await app.updateNotificationBell();
-                        app.navigateTo("agenda");
-                    } catch (err) {
-                        app.showToast(err.message, "error");
-                    }
-                    return;
-                }
-            });
-
-        // Registrar Tabs de Filtro
-        container.querySelectorAll(".btn-filter-agenda").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-                container.querySelectorAll(".btn-filter-agenda").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                renderAgendaRows(btn.getAttribute("data-filter"));
-            });
-        });
-
-        // Inicializar tabla
-        renderAgendaRows("pending");
-
-        // Eventos del formulario del modal de consulta
-        const consultForm = document.getElementById("consultation-form");
-        
-        // Desvincular eventos anteriores para evitar duplicados
-        const newConsultForm = consultForm.cloneNode(true);
-        consultForm.parentNode.replaceChild(newConsultForm, consultForm);
-
-        newConsultForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            app.setBtnLoading(submitBtn, true);
-
-            const appId = document.getElementById("consult-app-id").value;
-            const patId = document.getElementById("consult-patient-id").value;
-            const diagnostic = document.getElementById("consult-diagnostic").value.trim();
-            const observations = document.getElementById("consult-observations").value.trim();
-            const indications = document.getElementById("consult-indications").value.trim();
-            const recipe = document.getElementById("consult-recipe").value;
-
-            // Manejo de adjuntos
-            const attachments = [];
-            const fileInput = document.getElementById("consult-attachments");
-            if (fileInput && fileInput.files.length > 0) {
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    attachments.push({
-                        name: fileInput.files[i].name,
-                        size: (fileInput.files[i].size / (1024 * 1024)).toFixed(1) + " MB"
                     });
-                }
-            } else {
-                // Generar un estudio si seleccionó receta
-                if (recipe) {
-                    attachments.push({
-                        name: "Orden_Estudio_Adjunto.pdf",
-                        size: "0.8 MB"
+
+                    tbody.querySelectorAll(".btn-advance-pat").forEach(btn => {
+                        btn.onclick = async () => {
+                            const appId = btn.dataset.id;
+                            const appDate = btn.dataset.date;
+                            const appTime = btn.dataset.time;
+                            try {
+                                const slots = await window.db.getDoctorAvailability(doctor.id, appDate);
+                                const earlier = slots.filter(s => s.available && s.time < appTime);
+                                if (earlier.length === 0) return app.showToast("No hay horarios anteriores libres.", "info");
+
+                                const modal = document.getElementById('advance-modal');
+                                modal.querySelector('#advance-times-list').innerHTML = earlier.map(s => `
+                                    <button class="btn btn-outline-primary btn-block mb-2 btn-sel-new-time" data-time="${s.time}">${s.time} hs</button>
+                                `).join("");
+
+                                modal.querySelectorAll(".btn-sel-new-time").forEach(b => {
+                                    b.onclick = async () => {
+                                        await window.db.updateAppointmentSchedule(appId, appDate, b.dataset.time);
+                                        app.closeModal('advance-modal');
+                                        app.showToast("Turno adelantado", "success");
+                                        app.navigateTo("agenda");
+                                    };
+                                });
+                                app.openModal('advance-modal');
+                            } catch(e) { app.showToast(e.message, "error"); }
+                        };
                     });
-                }
-            }
+                };
 
-            try {
-                // Buscar el turno para obtener la fecha
-                const appointments = await window.db.getAppointments();
-                const appo = appointments.find(a => a.id === appId);
-                const dateVal = appo ? appo.date : new Date().toISOString().split("T")[0];
-
-                await window.db.createMedicalRecord({
-                    appointmentId: appId,
-                    patientId: patId,
-                    patientName: document.getElementById("consult-patient-name").textContent,
-                    doctorId: doctor.id,
-                    doctorName: doctor.name,
-                    date: dateVal,
-                    diagnostic,
-                    observations,
-                    indications,
-                    recipe,
-                    attachments
+                container.querySelectorAll(".btn-filter-agenda").forEach(btn => {
+                    btn.onclick = () => {
+                        container.querySelectorAll(".btn-filter-agenda").forEach(b => b.classList.remove("active"));
+                        btn.classList.add("active");
+                        renderRows(btn.dataset.filter);
+                    };
                 });
 
-                app.showToast("Atención médica guardada y cargada al Historial Clínico.", "success");
-                app.closeModal("consultation-modal");
-                await app.updateNotificationBell();
-                app.navigateTo("agenda");
+                renderRows("pending");
+
+                // Configurar formulario de consulta una sola vez
+                const form = document.getElementById("consultation-form");
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    app.setBtnLoading(submitBtn, true);
+                    try {
+                        const appId = document.getElementById("consult-app-id").value;
+                        const diagnostic = document.getElementById("consult-diagnostic").value;
+                        const indications = document.getElementById("consult-indications").value;
+
+                        await window.db.createMedicalRecord({
+                            appointmentId: appId,
+                            patientId: document.getElementById("consult-patient-id").value,
+                            patientName: document.getElementById("consult-patient-name").textContent,
+                            doctorId: doctor.id,
+                            doctorName: doctor.name,
+                            date: new Date().toISOString().split("T")[0],
+                            diagnostic,
+                            indications,
+                            observations: document.getElementById("consult-observations").value,
+                            recipe: document.getElementById("consult-recipe").value,
+                            attachments: []
+                        });
+
+                        app.showToast("Atención finalizada", "success");
+                        app.closeModal("consultation-modal");
+                        app.navigateTo("agenda");
+                    } catch(e) { app.showToast(e.message, "error"); app.setBtnLoading(submitBtn, false); }
+                };
+
             } catch (err) {
-                app.showToast(err.message, "error");
-                app.setBtnLoading(submitBtn, false);
+                console.error("Agenda Error:", err);
+                container.innerHTML = `<div class="error-state"><p>Error al cargar la agenda: ${err.message}</p></div>`;
             }
         });
 
-        // Cancelar consulta
-        document.getElementById("consultation-cancel-btn").onclick = () => {
-            app.closeModal("consultation-modal");
-        };
-        document.getElementById("consultation-close-btn").onclick = () => {
-            app.closeModal("consultation-modal");
-        };
-    });
-
-    // 2. CONFIGURACIÓN DE HORARIOS DEL MÉDICO
-    app.registerView("configuracion_horarios", async (container) => {
-        const doctor = app.currentUser;
-        if (!doctor) return renderNoDoctorSession(container);
-
-        // Obtener datos frescos
-        const freshDocRaw = await window.db.getDoctorById(doctor.id) || {};
-        // Asegurar valores por defecto para evitar errores si faltan campos
-        const freshDoc = Object.assign({ workDays: [], workHours: { start: '08:00', end: '12:00' }, blockedDates: [] }, freshDocRaw);
-
-        let html = `
-            <div class="card animate__animated animate__fadeIn">
-                <div class="card-title">
-                    <span>Configurar mis Días y Horas de Atención</span>
-                    <i class="fa-solid fa-clock text-muted"></i>
-                </div>
-                <form id="form-doctor-schedule">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; flex-wrap: wrap;">
-                        
-                        <div>
-                            <label class="mb-4 d-block">Seleccione los Días de Consulta Semanal:</label>
-                            <div style="display: flex; flex-direction: column; gap: 10px;">
-                                ${[1, 2, 3, 4, 5, 6].map(dNum => {
-                                    const dayNames = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-                                    const isChecked = Array.isArray(freshDoc.workDays) && freshDoc.workDays.includes(dNum);
-                                    return `
-                                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: normal;">
-                                            <input type="checkbox" name="workday" value="${dNum}" ${isChecked ? 'checked' : ''} style="width: auto;">
-                                            ${dayNames[dNum]}
-                                        </label>
-                                    `;
-                                }).join("")}
-                            </div>
-
-                            <div class="mt-5" style="border-top: 1px solid var(--border-color); padding-top: 24px;">
-                                <label class="mb-3 d-block"><i class="fa-solid fa-calendar-xmark"></i> Días Específicos No Laborales (Vacaciones/Licencias):</label>
-                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                    <input type="date" id="doc-block-date" style="flex: 1;">
-                                    <button type="button" id="btn-add-blocked-date" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-plus"></i> Bloquear Día</button>
-                                </div>
-                                <div id="blocked-dates-list" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; padding: 4px;">
-                                    ${(freshDoc.blockedDates || []).map(date => `
-                                        <span class="badge-status solicitado" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px;">
-                                            ${new Date(date + "T00:00:00").toLocaleDateString()}
-                                            <i class="fa-solid fa-circle-xmark btn-remove-blocked-date" data-date="${date}" style="cursor:pointer; color: var(--danger);"></i>
-                                        </span>
-                                    `).join("") || '<span class="text-muted" style="font-size:12px;">No hay días bloqueados.</span>'}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="mb-4 d-block">Rango de Horario de Atención Diario:</label>
-                            <div class="form-group">
-                                <label for="doc-start-hour">Hora de Apertura</label>
-                                <input type="time" id="doc-start-hour" value="${freshDoc.workHours.start}" required>
-                            </div>
-                            <div class="form-group mt-4">
-                                <label for="doc-end-hour">Hora de Cierre</label>
-                                <input type="time" id="doc-end-hour" value="${freshDoc.workHours.end}" required>
-                            </div>
-                            <div class="mt-4" style="background: var(--primary-teal-light); border: 1px dashed var(--primary-teal); padding: 12px; border-radius: var(--radius-md); font-size: 12px; color: var(--primary-teal);">
-                                <i class="fa-solid fa-lightbulb"></i> Los turnos se generan según la duración seleccionada para cada consulta. Si un turno termina antes, el médico puede adelantar el siguiente disponible.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="modal-actions" style="margin-top: 32px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
-                    </div>
-                </form>
-            </div>
-        `;
-
-        container.innerHTML = html;
-
-        // Lógica de gestión de fechas bloqueadas en memoria (local a la vista)
-        let localBlockedDates = [...(freshDoc.blockedDates || [])];
-
-        const renderBlockedDatesList = () => {
-            const list = container.querySelector("#blocked-dates-list");
-            if (localBlockedDates.length === 0) {
-                list.innerHTML = '<span class="text-muted" style="font-size:12px;">No hay días bloqueados.</span>';
-                return;
-            }
-            list.innerHTML = localBlockedDates.sort().map(date => `
-                <span class="badge-status solicitado" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px;">
-                    ${new Date(date + "T00:00:00").toLocaleDateString()}
-                    <i class="fa-solid fa-circle-xmark btn-remove-blocked-date" data-date="${date}" style="cursor:pointer; color: var(--danger);"></i>
-                </span>
-            `).join("");
-
-            // Re-vincular botones de eliminar
-            list.querySelectorAll(".btn-remove-blocked-date").forEach(btn => {
-                btn.onclick = () => {
-                    const dateToRemove = btn.dataset.date;
-                    localBlockedDates = localBlockedDates.filter(d => d !== dateToRemove);
-                    renderBlockedDatesList();
-                };
-            });
-        };
-
-        // Vincular botón de añadir
-        container.querySelector("#btn-add-blocked-date").onclick = () => {
-            const dateInput = container.querySelector("#doc-block-date");
-            const dateVal = dateInput.value;
-            if (!dateVal) return;
-            if (localBlockedDates.includes(dateVal)) {
-                app.showToast("Este día ya está en la lista.", "warning");
-                return;
-            }
-            localBlockedDates.push(dateVal);
-            dateInput.value = "";
-            renderBlockedDatesList();
-        };
-
-        // Vincular eliminación inicial
-        renderBlockedDatesList();
-
-        const form = container.querySelector("#form-doctor-schedule");
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-
-            // Obtener días seleccionados
-            const checkedBoxes = form.querySelectorAll("input[name='workday']:checked");
-            const workDays = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
-
-            if (workDays.length === 0) {
-                app.showToast("Debe seleccionar al menos un día de atención.", "error");
-                return;
-            }
-
-            const start = form.querySelector("#doc-start-hour").value;
-            const end = form.querySelector("#doc-end-hour").value;
-
-            if (start >= end) {
-                app.showToast("La hora de inicio debe ser anterior a la de cierre.", "error");
-                return;
-            }
+        // 2. CONFIGURACIÓN DE HORARIOS DEL MÉDICO
+        app.registerView("configuracion_horarios", async (container) => {
+            console.log("SALUD GOYA: Renderizando vista Horarios Laborales...");
+            const doctor = app.currentUser;
+            if (!doctor) return renderNoDoctorSession(container);
 
             try {
-                app.setBtnLoading(submitBtn, true);
-                freshDoc.workDays = workDays;
-                freshDoc.workHours = { start, end };
-                freshDoc.blockedDates = localBlockedDates;
+                container.innerHTML = `<div class="loader-container"><div class="loader"></div><p>Obteniendo configuración...</p></div>`;
 
-                await window.db.saveDoctor(freshDoc);
-                app.showToast("Configuración actualizada correctamente.", "success");
-                
-                // Actualizar sesión activa en el SPA
-                app.currentUser = freshDoc;
-                app.navigateTo("agenda");
+                const freshDoc = await window.db.getDoctorById(doctor.id);
+                if (!freshDoc) throw new Error("No se pudo obtener el perfil del médico.");
+
+                // Asegurar campos
+                freshDoc.workDays = freshDoc.workDays || [];
+                freshDoc.workHours = freshDoc.workHours || { start: "08:00", end: "12:00" };
+                freshDoc.blockedDates = freshDoc.blockedDates || [];
+
+                let html = `
+                    <div class="card animate__animated animate__fadeIn">
+                        <div class="card-title">Configuración de Agenda y Días Laborales</div>
+                        <form id="form-doc-config">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px;">
+                                <div>
+                                    <label class="mb-3 d-block">Días de Atención Semanal:</label>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        ${[1,2,3,4,5,6].map(d => {
+                                            const names = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+                                            return `<label style="font-weight:normal; display:flex; align-items:center; gap:8px;">
+                                                <input type="checkbox" name="wd" value="${d}" ${freshDoc.workDays.includes(d) ? 'checked' : ''} style="width:auto;"> ${names[d]}
+                                            </label>`;
+                                        }).join("")}
+                                    </div>
+
+                                    <div class="mt-5 pt-4" style="border-top:1px solid var(--border-color);">
+                                        <label class="mb-2 d-block"><i class="fa-solid fa-calendar-xmark"></i> Fechas Bloqueadas (Licencias/Vacaciones):</label>
+                                        <div style="display:flex; gap:8px; margin-bottom:12px;">
+                                            <input type="date" id="block-date" style="flex:1;">
+                                            <button type="button" id="btn-add-block" class="btn btn-outline-primary btn-sm">Bloquear</button>
+                                        </div>
+                                        <div id="block-list" style="display:flex; flex-wrap:wrap; gap:8px; max-height:120px; overflow:auto;"></div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="mb-3 d-block">Horario de Consultorio:</label>
+                                    <div class="form-group">
+                                        <label>Hora de Inicio</label>
+                                        <input type="time" id="h-start" value="${freshDoc.workHours.start}" required>
+                                    </div>
+                                    <div class="form-group mt-3">
+                                        <label>Hora de Cierre</label>
+                                        <input type="time" id="h-end" value="${freshDoc.workHours.end}" required>
+                                    </div>
+                                    <div class="alert-card info mt-4" style="font-size:12px; line-height:1.4;">
+                                        <i class="fa-solid fa-info-circle"></i> Los turnos se habilitarán para los pacientes basándose en este rango horario y los días seleccionados.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-actions mt-5 pt-4" style="border-top:1px solid var(--border-color);">
+                                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar Cambios</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+
+                container.innerHTML = html;
+                const form = container.querySelector("#form-doc-config");
+                let blocks = [...freshDoc.blockedDates];
+
+                const renderBlocks = () => {
+                    const div = container.querySelector("#block-list");
+                    if (blocks.length === 0) { div.innerHTML = '<span class="text-muted" style="font-size:11px;">No hay fechas bloqueadas.</span>'; return; }
+                    div.innerHTML = blocks.sort().map(d => `
+                        <span class="badge-status solicitado" style="display:flex; align-items:center; gap:6px; padding:4px 8px; font-size:11px;">
+                            ${d} <i class="fa-solid fa-xmark text-danger btn-rem-block" data-date="${d}" style="cursor:pointer;"></i>
+                        </span>
+                    `).join("");
+                    div.querySelectorAll(".btn-rem-block").forEach(b => {
+                        b.onclick = () => { blocks = blocks.filter(x => x !== b.dataset.date); renderBlocks(); };
+                    });
+                };
+
+                container.querySelector("#btn-add-block").onclick = () => {
+                    const input = container.querySelector("#block-date");
+                    if (input.value && !blocks.includes(input.value)) {
+                        blocks.push(input.value);
+                        input.value = "";
+                        renderBlocks();
+                    }
+                };
+
+                renderBlocks();
+
+                form.onsubmit = async (e) => {
+                    e.preventDefault();
+                    const btn = form.querySelector('button[type="submit"]');
+                    const wds = Array.from(form.querySelectorAll("input[name='wd']:checked")).map(c => parseInt(c.value));
+                    if (wds.length === 0) return app.showToast("Selecciona al menos un día", "error");
+
+                    try {
+                        app.setBtnLoading(btn, true);
+                        const updated = {
+                            ...freshDoc,
+                            workDays: wds,
+                            workHours: { start: document.getElementById("h-start").value, end: document.getElementById("h-end").value },
+                            blockedDates: blocks
+                        };
+                        await window.db.saveDoctor(updated);
+                        app.showToast("Configuración actualizada", "success");
+                        app.currentUser = updated;
+                        app.navigateTo("agenda");
+                    } catch(e) { app.showToast(e.message, "error"); app.setBtnLoading(btn, false); }
+                };
+
             } catch (err) {
-                app.showToast(err.message, "error");
-                app.setBtnLoading(submitBtn, false);
+                console.error("Config Error:", err);
+                container.innerHTML = `<div class="error-state"><p>Error al cargar configuración: ${err.message}</p></div>`;
             }
         });
-    });
-    });
-});
+    };
 
-// Helper de Renderizar pantalla sin Sesión de Médico
-function renderNoDoctorSession(container) {
-    container.innerHTML = `
-        <div class="card p-5 text-center">
-            <i class="fa-solid fa-user-lock fa-4x text-muted mb-4"></i>
-            <h2>Portal del Profesional - Acceso Restringido</h2>
-            <p class="text-secondary mt-2">No se encuentra un médico seleccionado. Por favor, selecciona un Médico en la Barra del Simulador (en la parte superior) para visualizar su agenda.</p>
-        </div>
-    `;
-}
+    const renderNoDoctorSession = (container) => {
+        container.innerHTML = `
+            <div class="card p-5 text-center">
+                <i class="fa-solid fa-user-lock fa-4x text-muted mb-4"></i>
+                <h2>Acceso Restringido - Portal Médico</h2>
+                <p class="text-secondary mt-2">No se ha detectado una sesión de médico activa. Inicia sesión para continuar.</p>
+            </div>
+        `;
+    };
+
+    // Iniciar el registro
+    registerDoctorViews();
+})();
