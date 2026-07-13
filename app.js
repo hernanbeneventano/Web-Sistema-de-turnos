@@ -491,7 +491,7 @@ const app = {
     },
 
     updateNotificationBell: async function() {
-        if (!this.currentUser || this.currentUser.role !== 'admin') return;
+        if (!this.currentUser) return;
         try {
             const notifs = await window.db.getNotifications();
             const badge = document.getElementById("notif-count");
@@ -507,27 +507,39 @@ const app = {
     renderNotificationList: async function() {
         const container = document.getElementById("notif-list-container");
         if (!container) return;
-        container.innerHTML = '<div class="loader"></div>';
+        container.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
 
         try {
             const notifs = await window.db.getNotifications();
-            if (notifs.length === 0) {
-                container.innerHTML = '<div class="text-center text-muted p-4">No hay notificaciones registradas.</div>';
+            if (!notifs || notifs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center p-5 text-muted">
+                        <i class="fa-solid fa-envelope-open fa-3x mb-3"></i>
+                        <p>No tienes notificaciones registradas.</p>
+                    </div>
+                `;
                 return;
             }
 
             container.innerHTML = notifs.map(n => `
-                <div class="notif-item">
-                    <div class="notif-header">
-                        <span class="notif-type">${n.type}</span>
-                        <span class="notif-date">${new Date(n.date).toLocaleDateString()}</span>
+                <div class="notif-item animate__animated animate__fadeIn">
+                    <div class="notif-header-item">
+                        <span class="notif-type"><i class="fa-solid ${n.type === 'Correo' ? 'fa-envelope' : 'fa-whatsapp'}"></i> ${n.type}</span>
+                        <span class="notif-date">${new Date(n.date).toLocaleDateString()} ${new Date(n.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
                     <p class="notif-msg">${n.message}</p>
-                    <div class="notif-recipient">Para: ${n.recipient}</div>
+                    <div class="notif-recipient">
+                        <i class="fa-solid fa-user-tag"></i> Destino: ${n.recipient}
+                    </div>
                 </div>
             `).join("");
         } catch (err) {
-            container.innerHTML = '<div class="text-danger p-4">Error al cargar notificaciones.</div>';
+            container.innerHTML = `
+                <div class="text-danger p-4 text-center">
+                    <i class="fa-solid fa-circle-exclamation fa-2x mb-2"></i>
+                    <p>Error al cargar notificaciones.</p>
+                </div>
+            `;
         }
     }
 };
