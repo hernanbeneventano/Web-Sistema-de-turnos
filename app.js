@@ -230,6 +230,7 @@ const app = {
             admin: [
                 { id: "dashboard_admin", label: "Panel Admin", icon: "fa-chart-pie" },
                 { id: "gestion_medicos", label: "Médicos", icon: "fa-user-doctor" },
+                { id: "gestion_pacientes", label: "Pacientes y Sanciones", icon: "fa-users-slash" },
                 { id: "gestion_especialidades", label: "Especialidades", icon: "fa-tags" },
                 { id: "gestion_turnos", label: "Todos los Turnos", icon: "fa-list-check" },
                 { id: "gestion_notificaciones", label: "Notificaciones", icon: "fa-envelope" },
@@ -277,6 +278,7 @@ const app = {
             configuracion_horarios: "Mis Horarios Laborales",
             dashboard_admin: "Panel de Control y Estadísticas",
             gestion_medicos: "Administración del Staff Médico",
+            gestion_pacientes: "Gestión de Pacientes y Control de Sanciones",
             gestion_especialidades: "Gestión de Especialidades Médicas",
             gestion_turnos: "Monitor de Turnos del Sistema",
             gestion_notificaciones: "Log de Notificaciones Enviadas",
