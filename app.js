@@ -279,7 +279,7 @@ const app = {
             this.showToast(`Bienvenido de nuevo, ${user.name}`, "success");
         } catch (err) {
             console.error("Login error:", err);
-            this.showToast(err.message || "Error al iniciar sesión", "error");
+            this.showToast(err.message || "Credenciales incorrectas o cuenta inexistente", "error");
         } finally {
             this.setBtnLoading(submitBtn, false);
         }

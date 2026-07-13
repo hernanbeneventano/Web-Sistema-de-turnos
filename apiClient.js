@@ -25,7 +25,13 @@ const apiClient = {
             headers
         };
 
-        let response = await fetch(url, config);
+        let response;
+        try {
+            response = await fetch(url, config);
+        } catch (err) {
+            console.error("Fetch error:", err);
+            throw new Error("No se pudo conectar con el servidor. Verifique su conexión a internet.");
+        }
 
         // Si el token expiró (401), intentar refrescar
         if (response.status === 401 && localStorage.getItem("refreshToken")) {
@@ -43,7 +49,8 @@ const apiClient = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || "Error en la petición");
+            const message = errorData.error?.message || errorData.message || "Error en la petición";
+            throw new Error(message);
         }
 
         if (response.status === 204) return null;
