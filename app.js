@@ -108,6 +108,42 @@ const app = {
         if (pageLoginForm) pageLoginForm.addEventListener("submit", (e) => this.handlePageLogin(e));
         if (pageRegisterForm) pageRegisterForm.addEventListener("submit", (e) => this.handlePageRegister(e));
         if (pageInviteForm) pageInviteForm.addEventListener("submit", (e) => this.handlePageInvite(e));
+
+        this.applyInputRestrictions();
+    },
+
+    applyInputRestrictions: function() {
+        // Restringir DNI a solo números
+        document.querySelectorAll('input[id*="dni"]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').substring(0, 10);
+            });
+        });
+
+        // Restringir Teléfono a solo números
+        document.querySelectorAll('input[id*="phone"]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').substring(0, 15);
+            });
+        });
+
+        // Restringir Nombres a letras y espacios
+        document.querySelectorAll('input[id*="name"]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+            });
+        });
+
+        // Bloquear emojis globalmente en todos los inputs
+        document.addEventListener('input', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                const regex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+                if (regex.test(e.target.value)) {
+                    e.target.value = e.target.value.replace(regex, '');
+                    this.showToast("No se permiten emojis en este campo", "warning");
+                }
+            }
+        }, true);
     },
 
     // ==========================================
@@ -242,6 +278,8 @@ const app = {
             mainContent.innerHTML = '<div class="loader-container"><div class="loader"></div></div>';
             try {
                 await this.views[viewId](mainContent);
+                // Re-aplicar restricciones a los nuevos elementos del DOM
+                this.applyInputRestrictions();
             } catch (err) {
                 console.error(`Error al cargar vista ${viewId}:`, err);
                 mainContent.innerHTML = `<div class="error-state">
