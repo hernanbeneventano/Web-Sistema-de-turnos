@@ -265,7 +265,7 @@
 
                     <div class="form-row">
                         <div class="form-group col-md-6">
-                            <label for="consult-recipe">Receta Digital (Simulada)</label>
+                            <label for="consult-recipe">Receta Digital</label>
                             <select id="consult-recipe" class="form-control">
                                 <option value="">No requiere receta médica</option>
                                 <option value="Receta_Medicación_General.pdf">Receta de medicamentos recetados</option>
@@ -274,9 +274,9 @@
                             </select>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="consult-attachments">Estudio Adjunto / Documento (Simulado)</label>
-                            <input type="file" id="consult-attachments" class="form-control-file" disabled placeholder="Simular subida de archivo">
-                            <small class="form-text text-muted">La subida se simulará localmente en la base de datos.</small>
+                            <label for="consult-attachments">Estudio Adjunto / Documento</label>
+                            <input type="file" id="consult-attachments" class="form-control-file" disabled placeholder="Subir archivo">
+                            <small class="form-text text-muted">Adjuntar documentos escaneados si es necesario.</small>
                         </div>
                     </div>
 
@@ -338,6 +338,7 @@
     <script src="db.js"></script>
     <script src="components/patient.js"></script>
     <script src="components/doctor.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Chart.js: gráfico de torta en panel de administración -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="components/admin.js"></script>

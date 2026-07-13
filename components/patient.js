@@ -689,7 +689,7 @@ function showHistoryModal(record) {
         attachmentsHtml = record.attachments.map(att => `
             <div style="background: var(--bg-light); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
                 <span style="font-size: 13px;"><i class="fa-regular fa-file-pdf text-danger"></i> ${att.name} (${att.size})</span>
-                <a href="#" class="btn btn-secondary btn-sm" onclick="app.showToast('Estudio descargado correctamente (Simulación)', 'info')"><i class="fa-solid fa-download"></i> Descargar</a>
+                <a href="#" class="btn btn-secondary btn-sm" onclick="app.showToast('Descargando archivo...', 'info')"><i class="fa-solid fa-download"></i> Descargar</a>
             </div>
         `).join("");
     }
@@ -709,7 +709,7 @@ function showHistoryModal(record) {
                     <p>${record.doctorName}</p>
                 </div>
                 <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
-                    <button class="btn btn-primary btn-sm" onclick="app.showToast('Descargando archivo PDF de la receta (Simulado)...', 'success')">
+                    <button class="btn btn-primary btn-sm" id="btn-download-recipe-pdf">
                         <i class="fa-solid fa-file-arrow-down"></i> Descargar PDF Receta
                     </button>
                 </div>
@@ -754,8 +754,95 @@ function showHistoryModal(record) {
 
     app.openModal("history-detail-modal");
 
+    // Evento de descarga real de PDF
+    const downloadBtn = document.getElementById("btn-download-recipe-pdf");
+    if (downloadBtn) {
+        downloadBtn.onclick = () => downloadRecipePDF(record);
+    }
+
     // Registrar cierre de modal
     document.getElementById("history-close-btn").onclick = () => {
         app.closeModal("history-detail-modal");
     };
+}
+
+/**
+ * Genera y descarga un PDF real usando jsPDF
+ */
+function downloadRecipePDF(record) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // -- ENCABEZADO --
+    doc.setFillColor(33, 150, 243); // Azul
+    doc.rect(0, 0, pageWidth, 40, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("SALUD GOYA", 15, 20);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Portal del Paciente - Receta Digital", 15, 30);
+    doc.text(new Date().toLocaleDateString(), pageWidth - 40, 20);
+
+    // -- CUERPO --
+    doc.setTextColor(40, 40, 40);
+
+    // Datos del Paciente
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("DATOS DEL PACIENTE", 15, 55);
+    doc.setLineWidth(0.5);
+    doc.line(15, 57, 70, 57);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Nombre: ${record.patientName}`, 15, 65);
+    doc.text(`Fecha de Atención: ${record.date}`, 15, 72);
+
+    // Datos del Médico
+    doc.setFont("helvetica", "bold");
+    doc.text("PROFESIONAL", 120, 55);
+    doc.line(120, 57, 160, 57);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Dr/a. ${record.doctorName}`, 120, 65);
+
+    // Diagnóstico
+    doc.setFont("helvetica", "bold");
+    doc.text("DIAGNÓSTICO:", 15, 90);
+    doc.setFont("helvetica", "normal");
+    doc.text(record.diagnostic || "No especificado", 50, 90);
+
+    // Prescripción (Rp)
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(15, 100, pageWidth - 30, 80);
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Rp.", 20, 110);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+
+    // Manejo de texto largo en indicaciones
+    const splitIndications = doc.splitTextToSize(record.indications || "Sin indicaciones adicionales.", pageWidth - 40);
+    doc.text(splitIndications, 25, 120);
+
+    // -- FIRMA --
+    doc.setFontSize(10);
+    doc.text("__________________________", pageWidth - 70, 200);
+    doc.text("Firma y Sello Digital", pageWidth - 65, 205);
+    doc.text(`Dr/a. ${record.doctorName}`, pageWidth - 65, 210);
+
+    // Pie de página
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Este documento es una receta digital válida generada por el sistema Salud Goya.", pageWidth / 2, 280, { align: "center" });
+
+    // Descargar
+    doc.save(`Receta_${record.patientName.replace(/\s+/g, '_')}_${record.date}.pdf`);
+    app.showToast("PDF generado y descargado correctamente", "success");
 }

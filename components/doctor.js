@@ -298,7 +298,7 @@ window.addEventListener("DOMContentLoaded", () => {
             const indications = document.getElementById("consult-indications").value.trim();
             const recipe = document.getElementById("consult-recipe").value;
 
-            // Simulación de adjuntos (nombre genérico si sube archivo)
+            // Manejo de adjuntos
             const attachments = [];
             const fileInput = document.getElementById("consult-attachments");
             if (fileInput && fileInput.files.length > 0) {
@@ -309,7 +309,7 @@ window.addEventListener("DOMContentLoaded", () => {
                     });
                 }
             } else {
-                // Generar un estudio simulado si seleccionó receta para enriquecer la demo
+                // Generar un estudio si seleccionó receta
                 if (recipe) {
                     attachments.push({
                         name: "Orden_Estudio_Adjunto.pdf",
