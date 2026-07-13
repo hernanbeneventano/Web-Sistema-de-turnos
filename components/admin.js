@@ -157,13 +157,19 @@ window.addEventListener("DOMContentLoaded", () => {
 
     // 2. GESTIÓN DE PACIENTES Y SANCIONES
     app.registerView("gestion_pacientes", async (container) => {
-        const patients = await window.db.getPatients();
+        const allPatients = await window.db.getPatients();
 
         container.innerHTML = `
             <div class="card animate__animated animate__fadeIn">
                 <div class="card-title">
-                    <span>Control de Pacientes y Sanciones por Inasistencia</span>
-                    <i class="fa-solid fa-users-slash text-muted"></i>
+                    <span>Control de Pacientes y Sanciones</span>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div class="search-box" style="position: relative;">
+                            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 13px;"></i>
+                            <input type="text" id="patient-search" placeholder="Buscar por nombre, DNI o email..." style="padding-left: 35px; width: 300px; height: 38px; font-size: 13px;">
+                        </div>
+                        <i class="fa-solid fa-users-slash text-muted"></i>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table-custom" id="table-admin-patients">
@@ -177,95 +183,131 @@ window.addEventListener("DOMContentLoaded", () => {
                                 <th>Acciones</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${patients.length === 0
-                                ? '<tr><td colspan="6" class="text-center text-muted">No hay pacientes registrados.</td></tr>'
-                                : patients.map(p => {
-                                    const statusBadge = `<span class="badge-status ${p.status === 'Suspendido' ? 'ausente' : 'confirmado'}">${p.status}</span>`;
-                                    const isSuspended = p.status === 'Suspendido';
-
-                                    return `
-                                        <tr>
-                                            <td>
-                                                <strong>${p.name}</strong><br>
-                                                <small class="text-secondary">DNI: ${p.dni || '-'}</small>
-                                            </td>
-                                            <td>
-                                                <small>${p.email}</small><br>
-                                                <small>${p.phone || '-'}</small>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge ${p.absences >= 3 ? 'bg-danger' : 'bg-light text-dark'}" style="padding: 4px 8px; border-radius: 4px;">
-                                                    ${p.absences || 0}
-                                                </span>
-                                            </td>
-                                            <td>${statusBadge}</td>
-                                            <td>
-                                                ${isSuspended
-                                                    ? `<small class="text-danger">Hasta: ${new Date(p.suspensionEnd).toLocaleDateString()}</small><br>
-                                                       <small class="text-muted" title="${p.suspensionReason}">${p.suspensionReason?.substring(0, 20)}...</small>`
-                                                    : '<span class="text-muted">-</span>'}
-                                            </td>
-                                            <td>
-                                                <div style="display: flex; gap: 8px;">
-                                                    ${isSuspended
-                                                        ? `<button class="btn btn-success btn-sm btn-lift-suspension" data-id="${p.id}" title="Levantar Suspensión">
-                                                              <i class="fa-solid fa-user-check"></i> Activar
-                                                           </button>`
-                                                        : `<button class="btn btn-warning btn-sm btn-reset-absences" data-id="${p.id}" title="Resetear Inasistencias">
-                                                              <i class="fa-solid fa-rotate-left"></i> Limpiar
-                                                           </button>`}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    `;
-                                }).join("")}
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
         `;
 
-        // Evento para Levantar Suspensión
-        container.querySelectorAll(".btn-lift-suspension").forEach(btn => {
-            btn.addEventListener("click", async () => {
-                const id = btn.dataset.id;
-                if (confirm("¿Estás seguro de levantar la suspensión de este paciente? Podrá volver a reservar turnos inmediatamente.")) {
-                    try {
-                        await window.db.updatePatient({
-                            id,
-                            status: "Activo",
-                            absences: 0,
-                            suspensionEnd: null,
-                            suspensionReason: null
-                        });
-                        app.showToast("Suspensión levantada con éxito.", "success");
-                        app.navigateTo("gestion_pacientes");
-                    } catch (err) {
-                        app.showToast(err.message, "error");
-                    }
-                }
-            });
-        });
+        const tbody = container.querySelector("#table-admin-patients tbody");
 
-        // Evento para Resetear Inasistencias (sin estar suspendido)
-        container.querySelectorAll(".btn-reset-absences").forEach(btn => {
-            btn.addEventListener("click", async () => {
-                const id = btn.dataset.id;
-                if (confirm("¿Deseas poner en cero el contador de inasistencias de este paciente?")) {
+        const renderPatientRows = (filter = "") => {
+            const query = filter.toLowerCase().trim();
+            const filtered = allPatients.filter(p =>
+                p.name.toLowerCase().includes(query) ||
+                (p.dni && p.dni.includes(query)) ||
+                p.email.toLowerCase().includes(query)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted p-4">No se encontraron pacientes que coincidan con "${filter}".</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(p => {
+                const statusBadge = `<span class="badge-status ${p.status === 'Suspendido' ? 'ausente' : 'confirmado'}">${p.status}</span>`;
+                const isSuspended = p.status === 'Suspendido';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong>${p.name}</strong><br>
+                            <small class="text-secondary">DNI: ${p.dni || '-'}</small>
+                        </td>
+                        <td>
+                            <small>${p.email}</small><br>
+                            <small>${p.phone || '-'}</small>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge ${p.absences >= 3 ? 'bg-danger' : 'bg-light text-dark'}" style="padding: 4px 8px; border-radius: 4px;">
+                                ${p.absences || 0}
+                            </span>
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${isSuspended
+                                ? `<small class="text-danger">Hasta: ${new Date(p.suspensionEnd).toLocaleDateString()}</small><br>
+                                   <small class="text-muted" title="${p.suspensionReason}">${p.suspensionReason?.substring(0, 20)}...</small>`
+                                : '<span class="text-muted">-</span>'}
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 8px;">
+                                ${isSuspended
+                                    ? `<button class="btn btn-success btn-sm btn-lift-suspension" data-id="${p.id}" title="Levantar Suspensión">
+                                          <i class="fa-solid fa-user-check"></i> Activar
+                                       </button>`
+                                    : `
+                                       <button class="btn btn-danger btn-sm btn-manual-sanction" data-id="${p.id}" title="Sanción Manual">
+                                          <i class="fa-solid fa-gavel"></i> Sancionar
+                                       </button>
+                                       <button class="btn btn-warning btn-sm btn-reset-absences" data-id="${p.id}" title="Resetear Inasistencias">
+                                          <i class="fa-solid fa-rotate-left"></i> Limpiar
+                                       </button>
+                                    `}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+
+            // Re-vincular eventos
+            tbody.querySelectorAll(".btn-lift-suspension").forEach(btn => {
+                btn.onclick = async () => {
+                    const id = btn.dataset.id;
+                    if (confirm("¿Estás seguro de levantar la suspensión de este paciente?")) {
+                        try {
+                            await window.db.updatePatient({ id, status: "Activo", absences: 0, suspensionEnd: null, suspensionReason: null });
+                            app.showToast("Suspensión levantada.", "success");
+                            app.navigateTo("gestion_pacientes");
+                        } catch (err) { app.showToast(err.message, "error"); }
+                    }
+                };
+            });
+
+            tbody.querySelectorAll(".btn-manual-sanction").forEach(btn => {
+                btn.onclick = async () => {
+                    const id = btn.dataset.id;
+                    const reason = prompt("Ingrese el motivo de la sanción manual:");
+                    if (!reason) return;
+                    const days = prompt("¿Cuántos días de suspensión desea aplicar?", "30");
+                    if (!days || isNaN(days)) return;
+
+                    const endDate = new Date();
+                    endDate.setDate(endDate.getDate() + parseInt(days));
+
                     try {
                         await window.db.updatePatient({
                             id,
-                            absences: 0
+                            status: "Suspendido",
+                            suspensionEnd: endDate.toISOString(),
+                            suspensionReason: `Sanción Manual: ${reason}`
                         });
-                        app.showToast("Contador de inasistencias reseteado.", "success");
+                        app.showToast("Paciente sancionado manualmente.", "warning");
                         app.navigateTo("gestion_pacientes");
-                    } catch (err) {
-                        app.showToast(err.message, "error");
-                    }
-                }
+                    } catch (err) { app.showToast(err.message, "error"); }
+                };
             });
-        });
+
+            tbody.querySelectorAll(".btn-reset-absences").forEach(btn => {
+                btn.onclick = async () => {
+                    const id = btn.dataset.id;
+                    if (confirm("¿Deseas poner en cero el contador de inasistencias?")) {
+                        try {
+                            await window.db.updatePatient({ id, absences: 0 });
+                            app.showToast("Contador reseteado.", "success");
+                            app.navigateTo("gestion_pacientes");
+                        } catch (err) { app.showToast(err.message, "error"); }
+                    }
+                };
+            });
+        };
+
+        // Evento búsqueda
+        const searchInput = container.querySelector("#patient-search");
+        searchInput.addEventListener("input", (e) => renderPatientRows(e.target.value));
+
+        // Initial render
+        renderPatientRows();
     });
 
     // 3. GESTIÓN DE MÉDICOS
