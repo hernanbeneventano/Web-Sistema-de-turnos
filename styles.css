@@ -1144,19 +1144,19 @@ input:focus, select:focus, textarea:focus {
    ========================================== */
 .notification-sidebar {
     position: fixed;
-    top: calc(var(--sim-bar-height) + 70px);
+    top: 0;
     right: 0;
     bottom: 0;
     width: 380px;
     background-color: var(--bg-card);
     border-left: 1px solid var(--border-color);
     box-shadow: var(--shadow-lg);
-    z-index: 110;
+    z-index: 10000;
     display: flex;
     flex-direction: column;
     transform: translateX(100%);
     transition: transform var(--transition-normal);
-    overscroll-behavior: contain; /* Evita que el scroll pase al body */
+    overscroll-behavior: contain;
 }
 
 /* Clase para bloquear el scroll del fondo cuando la barra está abierta */
@@ -1214,7 +1214,6 @@ body.notif-open {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    height: 100%; /* Asegura que tome el espacio disponible para scrollear */
 }
 
 .notif-item {
