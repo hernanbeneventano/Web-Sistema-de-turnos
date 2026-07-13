@@ -365,7 +365,7 @@ window.addEventListener("DOMContentLoaded", () => {
         // Obtener datos frescos
         const freshDocRaw = await window.db.getDoctorById(doctor.id) || {};
         // Asegurar valores por defecto para evitar errores si faltan campos
-        const freshDoc = Object.assign({ workDays: [], workHours: { start: '08:00', end: '12:00' } }, freshDocRaw);
+        const freshDoc = Object.assign({ workDays: [], workHours: { start: '08:00', end: '12:00' }, blockedDates: [] }, freshDocRaw);
 
         let html = `
             <div class="card animate__animated animate__fadeIn">
@@ -374,7 +374,7 @@ window.addEventListener("DOMContentLoaded", () => {
                     <i class="fa-solid fa-clock text-muted"></i>
                 </div>
                 <form id="form-doctor-schedule">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; flex-wrap: wrap;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; flex-wrap: wrap;">
                         
                         <div>
                             <label class="mb-4 d-block">Seleccione los Días de Consulta Semanal:</label>
@@ -389,6 +389,22 @@ window.addEventListener("DOMContentLoaded", () => {
                                         </label>
                                     `;
                                 }).join("")}
+                            </div>
+
+                            <div class="mt-5" style="border-top: 1px solid var(--border-color); padding-top: 24px;">
+                                <label class="mb-3 d-block"><i class="fa-solid fa-calendar-xmark"></i> Días Específicos No Laborales (Vacaciones/Licencias):</label>
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <input type="date" id="doc-block-date" style="flex: 1;">
+                                    <button type="button" id="btn-add-blocked-date" class="btn btn-outline-primary btn-sm"><i class="fa-solid fa-plus"></i> Bloquear Día</button>
+                                </div>
+                                <div id="blocked-dates-list" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; padding: 4px;">
+                                    ${(freshDoc.blockedDates || []).map(date => `
+                                        <span class="badge-status solicitado" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px;">
+                                            ${new Date(date + "T00:00:00").toLocaleDateString()}
+                                            <i class="fa-solid fa-circle-xmark btn-remove-blocked-date" data-date="${date}" style="cursor:pointer; color: var(--danger);"></i>
+                                        </span>
+                                    `).join("") || '<span class="text-muted" style="font-size:12px;">No hay días bloqueados.</span>'}
+                                </div>
                             </div>
                         </div>
 
@@ -417,6 +433,49 @@ window.addEventListener("DOMContentLoaded", () => {
 
         container.innerHTML = html;
 
+        // Lógica de gestión de fechas bloqueadas en memoria (local a la vista)
+        let localBlockedDates = [...(freshDoc.blockedDates || [])];
+
+        const renderBlockedDatesList = () => {
+            const list = container.querySelector("#blocked-dates-list");
+            if (localBlockedDates.length === 0) {
+                list.innerHTML = '<span class="text-muted" style="font-size:12px;">No hay días bloqueados.</span>';
+                return;
+            }
+            list.innerHTML = localBlockedDates.sort().map(date => `
+                <span class="badge-status solicitado" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px;">
+                    ${new Date(date + "T00:00:00").toLocaleDateString()}
+                    <i class="fa-solid fa-circle-xmark btn-remove-blocked-date" data-date="${date}" style="cursor:pointer; color: var(--danger);"></i>
+                </span>
+            `).join("");
+
+            // Re-vincular botones de eliminar
+            list.querySelectorAll(".btn-remove-blocked-date").forEach(btn => {
+                btn.onclick = () => {
+                    const dateToRemove = btn.dataset.date;
+                    localBlockedDates = localBlockedDates.filter(d => d !== dateToRemove);
+                    renderBlockedDatesList();
+                };
+            });
+        };
+
+        // Vincular botón de añadir
+        container.querySelector("#btn-add-blocked-date").onclick = () => {
+            const dateInput = container.querySelector("#doc-block-date");
+            const dateVal = dateInput.value;
+            if (!dateVal) return;
+            if (localBlockedDates.includes(dateVal)) {
+                app.showToast("Este día ya está en la lista.", "warning");
+                return;
+            }
+            localBlockedDates.push(dateVal);
+            dateInput.value = "";
+            renderBlockedDatesList();
+        };
+
+        // Vincular eliminación inicial
+        renderBlockedDatesList();
+
         const form = container.querySelector("#form-doctor-schedule");
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
@@ -443,9 +502,10 @@ window.addEventListener("DOMContentLoaded", () => {
                 app.setBtnLoading(submitBtn, true);
                 freshDoc.workDays = workDays;
                 freshDoc.workHours = { start, end };
+                freshDoc.blockedDates = localBlockedDates;
 
                 await window.db.saveDoctor(freshDoc);
-                app.showToast("Horarios de atención actualizados correctamente.", "success");
+                app.showToast("Configuración actualizada correctamente.", "success");
                 
                 // Actualizar sesión activa en el SPA
                 app.currentUser = freshDoc;
@@ -455,6 +515,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 app.setBtnLoading(submitBtn, false);
             }
         });
+    });
     });
 });
 
