@@ -79,6 +79,16 @@ const app = {
             });
         }
 
+        // Cerrar sidebar al hacer clic fuera (en el área principal)
+        document.addEventListener("click", (e) => {
+            if (notifSidebar.classList.contains("active") &&
+                !notifSidebar.contains(e.target) &&
+                !bell.contains(e.target)) {
+                notifSidebar.classList.remove("active");
+                document.body.classList.remove("notif-open");
+            }
+        });
+
         // Cerrar modales genéricos al hacer clic en fondo
         document.querySelectorAll(".modal-overlay").forEach(modal => {
             modal.addEventListener("click", (e) => {
@@ -495,11 +505,14 @@ const app = {
     updateNotificationBell: async function() {
         if (!this.currentUser) return;
         try {
+            console.log("Actualizando notificaciones para:", this.currentUser.email);
             const notifs = await window.db.getNotifications();
+            console.log("Notificaciones recibidas:", notifs);
             const badge = document.getElementById("notif-count");
             if (badge) {
-                badge.textContent = notifs.length;
-                badge.style.display = notifs.length > 0 ? "flex" : "none";
+                const count = Array.isArray(notifs) ? notifs.length : 0;
+                badge.textContent = count;
+                badge.style.display = count > 0 ? "flex" : "none";
             }
         } catch (err) {
             console.warn("Error al actualizar campana:", err);
