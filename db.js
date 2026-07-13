@@ -99,7 +99,9 @@ const db = {
 
     updateAppointmentStatus: async function(appId, newStatus, additionalDetails = {}) {
         const payload = { ...additionalDetails };
-        if (newStatus) payload.status = newStatus;
+        if (newStatus !== undefined && newStatus !== null) {
+            payload.status = newStatus;
+        }
 
         return await window.apiClient.patch(`/appointments/${appId}/status`, payload);
     },

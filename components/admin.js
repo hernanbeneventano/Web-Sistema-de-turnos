@@ -103,7 +103,10 @@ window.addEventListener("DOMContentLoaded", () => {
                     btn.addEventListener("click", async () => {
                         const appId = btn.getAttribute("data-id");
                         try {
-                            await window.db.updateAppointmentStatus(appId, null, { paid: true });
+                            // Enviar explícitamente el estado actual o null si el backend lo maneja,
+                            // pero para asegurar compatibilidad con Zod .optional() y evitar "null",
+                            // llamamos a la API solo con los campos de pago.
+                            await window.db.updateAppointmentStatus(appId, undefined, { paid: true });
                             app.showToast("Pago registrado en caja exitosamente.", "success");
                             app.navigateTo("dashboard_admin");
                         } catch (err) {
@@ -530,7 +533,7 @@ window.addEventListener("DOMContentLoaded", () => {
             btn.addEventListener("click", async () => {
                 const appId = btn.dataset.id;
                 try {
-                    await window.db.updateAppointmentStatus(appId, null, { paid: true });
+                    await window.db.updateAppointmentStatus(appId, undefined, { paid: true });
                     app.showToast("Pago registrado correctamente.", "success");
                     app.navigateTo("gestion_turnos");
                 } catch (err) {
