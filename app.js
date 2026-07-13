@@ -258,6 +258,9 @@ const app = {
 
     handlePageLogin: async function(e) {
         e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        this.setBtnLoading(submitBtn, true);
+
         console.log("Intentando iniciar sesión...");
         const email = document.getElementById("page-login-email").value.trim();
         const password = document.getElementById("page-login-password").value;
@@ -277,11 +280,16 @@ const app = {
         } catch (err) {
             console.error("Login error:", err);
             this.showToast(err.message || "Error al iniciar sesión", "error");
+        } finally {
+            this.setBtnLoading(submitBtn, false);
         }
     },
 
     handlePageRegister: async function(e) {
         e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        this.setBtnLoading(submitBtn, true);
+
         const name = document.getElementById("page-reg-name").value.trim();
         const dni = document.getElementById("page-reg-dni").value.trim();
         const email = document.getElementById("page-reg-email").value.trim();
@@ -300,6 +308,8 @@ const app = {
         } catch (err) {
             console.error("Register error:", err);
             this.showToast(err.message || "Error al registrarse", "error");
+        } finally {
+            this.setBtnLoading(submitBtn, false);
         }
     },
 
@@ -334,12 +344,16 @@ const app = {
 
     handlePageInvite: async function(e) {
         e.preventDefault();
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        this.setBtnLoading(submitBtn, true);
+
         const token = document.getElementById("page-invite-token").value;
         const password = document.getElementById("page-invite-password").value;
         const confirm = document.getElementById("page-invite-confirm").value;
 
         if (password !== confirm) {
             this.showToast("Las contraseñas no coinciden", "warning");
+            this.setBtnLoading(submitBtn, false);
             return;
         }
 
@@ -356,11 +370,23 @@ const app = {
             }, 2000);
         } catch (err) {
             this.showToast(err.message || "Error al activar cuenta", "error");
+            this.setBtnLoading(submitBtn, false);
         }
     },
 
     handleLogout: function() {
         window.apiClient.logout();
+    },
+
+    setBtnLoading: function(btn, isLoading) {
+        if (!btn) return;
+        if (isLoading) {
+            btn.classList.add("btn-loading");
+            btn.disabled = true;
+        } else {
+            btn.classList.remove("btn-loading");
+            btn.disabled = false;
+        }
     },
 
     switchPageAuthTab: function(tab) {

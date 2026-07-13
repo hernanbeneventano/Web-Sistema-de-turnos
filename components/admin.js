@@ -320,6 +320,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const form = container.querySelector("#form-admin-doctor");
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
 
             const name = document.getElementById("doc-name").value.trim();
             const email = document.getElementById("doc-email").value.trim();
@@ -336,6 +337,8 @@ window.addEventListener("DOMContentLoaded", () => {
                 app.showToast("Seleccione al menos un día de atención.", "warning");
                 return;
             }
+
+            app.setBtnLoading(submitBtn, true);
 
             try {
                 app.showToast("Generando invitación...", "info");
@@ -375,6 +378,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
             } catch (err) {
                 app.showToast(err.message, "error");
+                app.setBtnLoading(submitBtn, false);
             }
         });
     });
@@ -427,9 +431,12 @@ window.addEventListener("DOMContentLoaded", () => {
         const addForm = container.querySelector("#form-add-specialty");
         addForm.addEventListener("submit", async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
             const input = document.getElementById("new-specialty-name");
             const name = input.value.trim();
             if (!name) return;
+
+            app.setBtnLoading(submitBtn, true);
 
             try {
                 app.showToast("Agregando especialidad...", "info");
@@ -438,6 +445,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 app.navigateTo("gestion_especialidades");
             } catch (err) {
                 app.showToast(err.message, "error");
+                app.setBtnLoading(submitBtn, false);
             }
         });
 

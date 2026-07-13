@@ -540,8 +540,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
             // Confirmar Acción
             nextBtn.onclick = async () => {
-                nextBtn.disabled = true;
-                nextBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Procesando...`;
+                app.setBtnLoading(nextBtn, true);
 
                 try {
                     // Leer opciones de pago seleccionadas en el resumen
@@ -567,9 +566,7 @@ window.addEventListener("DOMContentLoaded", () => {
                     app.navigateTo("dashboard");
                 } catch (err) {
                     app.showToast(err.message, "error");
-                    // Restaurar botón
-                    nextBtn.innerHTML = `<i class="fa-solid fa-calendar-check"></i> Reservar y Finalizar`;
-                    nextBtn.disabled = false;
+                    app.setBtnLoading(nextBtn, false);
                 }
             };
         };

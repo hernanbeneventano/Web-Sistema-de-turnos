@@ -278,6 +278,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
         newConsultForm.addEventListener("submit", async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            app.setBtnLoading(submitBtn, true);
+
             const appId = document.getElementById("consult-app-id").value;
             const patId = document.getElementById("consult-patient-id").value;
             const diagnostic = document.getElementById("consult-diagnostic").value.trim();
@@ -331,6 +334,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 app.navigateTo("agenda");
             } catch (err) {
                 app.showToast(err.message, "error");
+                app.setBtnLoading(submitBtn, false);
             }
         });
 
@@ -406,6 +410,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const form = container.querySelector("#form-doctor-schedule");
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
 
             // Obtener días seleccionados
             const checkedBoxes = form.querySelectorAll("input[name='workday']:checked");
@@ -425,6 +430,7 @@ window.addEventListener("DOMContentLoaded", () => {
             }
 
             try {
+                app.setBtnLoading(submitBtn, true);
                 freshDoc.workDays = workDays;
                 freshDoc.workHours = { start, end };
 
@@ -436,6 +442,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 app.navigateTo("agenda");
             } catch (err) {
                 app.showToast(err.message, "error");
+                app.setBtnLoading(submitBtn, false);
             }
         });
     });
