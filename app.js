@@ -65,6 +65,7 @@ const app = {
         if (bell) {
             bell.addEventListener("click", async () => {
                 notifSidebar.classList.toggle("active");
+                document.body.classList.toggle("notif-open", notifSidebar.classList.contains("active"));
                 if (notifSidebar.classList.contains("active")) {
                     await this.renderNotificationList();
                 }
@@ -74,6 +75,7 @@ const app = {
         if (notifClose) {
             notifClose.addEventListener("click", () => {
                 notifSidebar.classList.remove("active");
+                document.body.classList.remove("notif-open");
             });
         }
 

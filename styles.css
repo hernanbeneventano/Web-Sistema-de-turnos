@@ -1151,11 +1151,17 @@ input:focus, select:focus, textarea:focus {
     background-color: var(--bg-card);
     border-left: 1px solid var(--border-color);
     box-shadow: var(--shadow-lg);
-    z-index: 110; /* Aumentado para estar por encima del header */
+    z-index: 110;
     display: flex;
     flex-direction: column;
     transform: translateX(100%);
     transition: transform var(--transition-normal);
+    overscroll-behavior: contain; /* Evita que el scroll pase al body */
+}
+
+/* Clase para bloquear el scroll del fondo cuando la barra está abierta */
+body.notif-open {
+    overflow: hidden;
 }
 
 .notification-sidebar.active {
