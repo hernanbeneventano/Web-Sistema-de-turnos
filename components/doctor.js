@@ -20,11 +20,9 @@
             if (!doctor) return renderNoDoctorSession(container);
 
             try {
-                // Forzamos un pequeño retraso para asegurar que la UI se limpie
                 container.innerHTML = `<div class="loader-container"><div class="loader"></div><p>Cargando turnos...</p></div>`;
 
                 const allAppointments = await window.db.getAppointmentsByDoctor(doctor.id);
-                console.log(`Agenda: Encontrados ${allAppointments.length} turnos totales.`);
 
                 let html = `
                     <div class="stats-grid">
@@ -198,31 +196,26 @@
 
                 renderRows("pending");
 
-                // Configurar formulario de consulta una sola vez
+                // Configurar formulario de consulta
                 const form = document.getElementById("consultation-form");
                 form.onsubmit = async (e) => {
                     e.preventDefault();
                     const submitBtn = form.querySelector('button[type="submit"]');
                     app.setBtnLoading(submitBtn, true);
                     try {
-                        const appId = document.getElementById("consult-app-id").value;
-                        const diagnostic = document.getElementById("consult-diagnostic").value;
-                        const indications = document.getElementById("consult-indications").value;
-
                         await window.db.createMedicalRecord({
-                            appointmentId: appId,
+                            appointmentId: document.getElementById("consult-app-id").value,
                             patientId: document.getElementById("consult-patient-id").value,
                             patientName: document.getElementById("consult-patient-name").textContent,
                             doctorId: doctor.id,
                             doctorName: doctor.name,
                             date: new Date().toISOString().split("T")[0],
-                            diagnostic,
-                            indications,
+                            diagnostic: document.getElementById("consult-diagnostic").value,
+                            indications: document.getElementById("consult-indications").value,
                             observations: document.getElementById("consult-observations").value,
                             recipe: document.getElementById("consult-recipe").value,
                             attachments: []
                         });
-
                         app.showToast("Atención finalizada", "success");
                         app.closeModal("consultation-modal");
                         app.navigateTo("agenda");
@@ -230,14 +223,12 @@
                 };
 
             } catch (err) {
-                console.error("Agenda Error:", err);
                 container.innerHTML = `<div class="error-state"><p>Error al cargar la agenda: ${err.message}</p></div>`;
             }
         });
 
         // 2. CONFIGURACIÓN DE HORARIOS DEL MÉDICO
         app.registerView("configuracion_horarios", async (container) => {
-            console.log("SALUD GOYA: Renderizando vista Horarios Laborales...");
             const doctor = app.currentUser;
             if (!doctor) return renderNoDoctorSession(container);
 
@@ -247,7 +238,6 @@
                 const freshDoc = await window.db.getDoctorById(doctor.id);
                 if (!freshDoc) throw new Error("No se pudo obtener el perfil del médico.");
 
-                // Asegurar campos
                 freshDoc.workDays = freshDoc.workDays || [];
                 freshDoc.workHours = freshDoc.workHours || { start: "08:00", end: "12:00" };
                 freshDoc.blockedDates = freshDoc.blockedDates || [];
@@ -288,8 +278,8 @@
                                         <label>Hora de Cierre</label>
                                         <input type="time" id="h-end" value="${freshDoc.workHours.end}" required>
                                     </div>
-                                    <div class="alert-card info mt-4" style="font-size:12px; line-height:1.4;">
-                                        <i class="fa-solid fa-info-circle"></i> Los turnos se habilitarán para los pacientes basándose en este rango horario y los días seleccionados.
+                                    <div class="alert-card info mt-4" style="font-size:12px;">
+                                        <i class="fa-solid fa-info-circle"></i> Los turnos se habilitarán basándose en este rango y los días seleccionados.
                                     </div>
                                 </div>
                             </div>
@@ -351,7 +341,6 @@
                 };
 
             } catch (err) {
-                console.error("Config Error:", err);
                 container.innerHTML = `<div class="error-state"><p>Error al cargar configuración: ${err.message}</p></div>`;
             }
         });
@@ -362,11 +351,10 @@
             <div class="card p-5 text-center">
                 <i class="fa-solid fa-user-lock fa-4x text-muted mb-4"></i>
                 <h2>Acceso Restringido - Portal Médico</h2>
-                <p class="text-secondary mt-2">No se ha detectado una sesión de médico activa. Inicia sesión para continuar.</p>
+                <p class="text-secondary mt-2">No se ha detectado una sesión de médico activa.</p>
             </div>
         `;
     };
 
-    // Iniciar el registro
     registerDoctorViews();
 })();
